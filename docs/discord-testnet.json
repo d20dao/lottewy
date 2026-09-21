@@ -1,18 +1,30 @@
 {
   "origin": "https://testnet.lottewy.com",
   "interactionEndpoint": "https://testnet.lottewy.com/api/discord/interactions",
-  "workerVersionId": "c5ab181b-e998-4bdd-964e-240e3e4bf95d",
-  "sourceCommit": "b035618",
+  "workerVersionId": "af0bd678-9846-4dd6-9e71-6e3f3a72d060",
+  "sourceCommit": "cedb9f2",
   "chainId": 5042002,
-  "migrations": ["0009_discord_interactions.sql", "0010_discord_campaigns.sql"],
-  "commands": ["giveaway", "verify"],
+  "migrations": [
+    "0009_discord_interactions.sql",
+    "0010_discord_campaigns.sql",
+    "0011_discord_notifications.sql"
+  ],
+  "commands": [
+    "giveaway",
+    "verify"
+  ],
   "commandRegistrationActionId": "b5884b54-e1c6-4178-ab20-aae579fa396f",
   "commandRegistrationVerifiedAt": "2026-09-21T20:40:29.623Z",
   "endpointValidatedInDiscordPortal": true,
   "invalidSignatureRejected": true,
   "mainnetDeployed": false,
   "fullServerInteractionE2EVerified": false,
-  "validation": {"unitTestsPassed": 228, "unitTestsSkipped": 3, "targetedBrowserTestsPassed": 2, "testnetBuildPassed": true},
+  "validation": {
+    "unitTestsPassed": 232,
+    "unitTestsSkipped": 3,
+    "targetedBrowserTestsPassed": 4,
+    "testnetBuildPassed": true
+  },
   "reviewFixes": [
     "Recover original Discord messages after cancellation or expiry without reopening entries",
     "Use actual early cancellation time for undrawn data retention",
@@ -21,5 +33,10 @@
     "Reset role filtering on server and wallet changes",
     "Respect Discord Retry-After, including concurrent stale worker selections",
     "Direct local Discord setup to the deployed database"
-  ]
+  ],
+  "features": {
+    "privateOrganizerEntries": true,
+    "winnerNotifications": true,
+    "winnerNotificationBatchSize": 50
+  }
 }
