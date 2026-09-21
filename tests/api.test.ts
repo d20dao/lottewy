@@ -130,6 +130,69 @@ beforeEach(async () => {
   cookie = (await login()).cookie;
 });
 describe("signed Worker actions / real SQL atomicity", () => {
+  it("serializes simultaneous starts across giveaways owned by the same wallet", async () => {
+    const ids = [crypto.randomUUID(), crypto.randomUUID()];
+    const drafts = [];
+    for (const id of ids)
+      drafts.push(
+        (await (
+          await call("/actions", await command("create", id, 0, draft))
+        ).json()) as any,
+      );
+    const commands = await Promise.all(
+      drafts.map((g) =>
+        command("start", g.id, 1, { commitment: g.commitment }),
+      ),
+    );
+    const responses = await Promise.all(
+      commands.map((cmd) => call("/actions", cmd)),
+    );
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 400]);
+    expect(
+      db.sqlite
+        .prepare(
+          "SELECT count(*) n FROM attempts WHERE state IN ('submitting','pending')",
+        )
+        .get(),
+    ).toMatchObject({ n: 1 });
+    expect(
+      db.sqlite
+        .prepare("SELECT count(*) n FROM giveaways WHERE status='draft'")
+        .get(),
+    ).toMatchObject({ n: 1 });
+  });
+  it("stores and reloads a maximum-size private list without any D1 row exceeding 2 MB", async () => {
+    const id = crypto.randomUUID(),
+      large = {
+        ...draft,
+        entries: Array.from({ length: 10000 }, (_, i) =>
+          ("Member " + i).padEnd(256, "x"),
+        ),
+      };
+    const response = await call(
+      "/actions",
+      await command("create", id, 0, large),
+    );
+    expect(response.status).toBe(200);
+    const privateResult = (await (
+      await call(`/giveaways/${id}/private`)
+    ).json()) as any;
+    expect(privateResult.private.draft.entries).toEqual(large.entries);
+    expect(privateResult.private.entries).toHaveLength(10000);
+    for (const table of ["giveaways", "revisions", "actions", "json_chunks"])
+      for (const row of db.sqlite.prepare(`SELECT * FROM ${table}`).all()) {
+        expect(
+          Object.values(row).reduce(
+            (sum, value) => sum + Buffer.byteLength(String(value)),
+            0,
+          ),
+        ).toBeLessThan(1900000);
+      }
+    const publicText = await (
+      await call(`/giveaways/${id}`, undefined, "")
+    ).text();
+    expect(publicText).not.toContain(large.entries[0]);
+  });
   it("serves settled records without public RPC work and limits recovery credits to the signed owner", async () => {
     const id = crypto.randomUUID();
     await call(

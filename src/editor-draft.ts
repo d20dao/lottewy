@@ -5,6 +5,7 @@ export type LocalDraft = {
   weighted: boolean;
   step: number;
   revision: number;
+  giveawayId?: string;
 };
 const prefix = (owner?: string) =>
   `lottewy:editor:v1:${owner?.toLowerCase() || "guest"}:`;

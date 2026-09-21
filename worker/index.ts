@@ -24,6 +24,7 @@ import { arc } from "../shared/chain";
 import { review, type ReviewEnv } from "./jev";
 import { quote, reconcile } from "./reconcile";
 import { reserveTransaction, recordSubmission } from "./submission";
+import { storeJson, loadJson } from "./storage";
 import {
   AbuseError,
   assertFunded,
@@ -465,7 +466,7 @@ export default {
           );
           return json({
             ...JSON.parse(row.public_json),
-            private: JSON.parse(row.private_json),
+            private: await loadJson(env.DB, row.private_json),
             status: row.status,
             listed: !!row.listed,
           });
@@ -567,6 +568,11 @@ export default {
           "Action context mismatch",
         );
         assert(
+          /^[a-f\d-]{36}$/i.test(action.actionId) &&
+            /^[a-f\d-]{36}$/i.test(action.nonce),
+          "Invalid action identifier",
+        );
+        assert(
           action.payloadHash === hash(payload),
           "The signed payload has changed",
         );
@@ -662,8 +668,17 @@ export default {
               policy: evaluation.policy,
             },
           };
-          const pub = JSON.stringify(g),
-            priv = JSON.stringify({ draft: d, entries: built.privateEntries });
+          const pub = JSON.stringify(g);
+          assert(
+            new TextEncoder().encode(pub).length < 1800000,
+            "The public manifest is too large",
+          );
+          const stored = storeJson(env.DB, `private:${g.id}:${g.revision}`, {
+              draft: d,
+              entries: built.privateEntries,
+            }),
+            priv = stored.reference;
+          statements.push(...stored.statements);
           if (!row)
             statements.push(
               env.DB.prepare(
@@ -715,9 +730,21 @@ export default {
             "Development-only records cannot start an onchain draw",
           );
           assert(payload.commitment === g.commitment, "Commitment mismatch");
+          const pending = await env.DB.prepare(
+            "SELECT a.giveaway_id FROM attempts a JOIN giveaways g ON g.id=a.giveaway_id WHERE g.owner=? AND a.state IN ('submitting','pending') LIMIT 1",
+          )
+            .bind(user.address)
+            .first();
+          assert(
+            !pending,
+            "This wallet already has an unconfirmed draw. Resolve it before starting another.",
+          );
           const pricing = await quote(env);
           const reservation = await reserveTransaction(env, user.address);
           statements.push(
+            env.DB.prepare(
+              "INSERT INTO atomic_guard(ok) SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM attempts a JOIN giveaways g ON g.id=a.giveaway_id WHERE g.owner=? AND a.state IN ('submitting','pending')) THEN 1 ELSE 0 END",
+            ).bind(user.address),
             env.DB.prepare(
               "UPDATE giveaways SET status='submitting' WHERE id=? AND revision=? AND status='draft'",
             ).bind(row.id, row.revision),
@@ -829,13 +856,19 @@ export default {
               guard(env.DB),
             );
         } else throw new Error("Unsupported action");
-        // D1 batch + constraint guards atomically couple mutation, nonce and journal.
+        const storedPayload = storeJson(
+          env.DB,
+          `action:${action.actionId}:payload`,
+          payload,
+        );
+        // D1 batch + constraint guards atomically couple mutation, chunks, nonce and journal.
         await env.DB.batch([
           env.DB.prepare(
             "UPDATE nonces SET consumed=1 WHERE nonce=? AND address=? AND consumed=0 AND expires>?",
           ).bind(action.nonce, user.address, now()),
           guard(env.DB),
           ...statements,
+          ...storedPayload.statements,
           env.DB.prepare(
             "INSERT INTO actions(action_id,digest,signer,action_type,target,expected_revision,result_revision,payload_json,signed_json,signature,verification_json,accepted,result_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
           ).bind(
@@ -846,7 +879,7 @@ export default {
             action.giveawayId,
             action.expectedRevision,
             resultRevision,
-            JSON.stringify(payload),
+            storedPayload.reference,
             JSON.stringify(signed),
             sig,
             JSON.stringify(verification),

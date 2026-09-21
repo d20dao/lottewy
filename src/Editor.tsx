@@ -105,6 +105,9 @@ export default function Editor({
     ? location.pathname.split("/")[2]
     : null;
   const [initial] = useState(() => (!id ? readDraft(user?.address, id) : null));
+  const [creationId, setCreationId] = useState(
+    () => initial?.giveawayId || crypto.randomUUID(),
+  );
   const [dataOwner, setDataOwner] = useState(user?.address || "guest");
   const [draft, setDraft] = useState<Draft>({ ...blank, ...initial?.fields }),
     [text, setText] = useState(initial?.text || ""),
@@ -147,6 +150,7 @@ export default function Editor({
   useEffect(() => {
     if (previousUser.current && previousUser.current !== user?.address) {
       setDraft({ ...blank });
+      setCreationId(crypto.randomUUID());
       setText("");
       setStep(0);
       setLoadedOwner(null);
@@ -168,6 +172,7 @@ export default function Editor({
       const cached = readDraft(user.address, id);
       if (cached && !text.trim() && !draft.title) {
         setDraft({ ...blank, ...cached.fields });
+        setCreationId(cached.giveawayId || crypto.randomUUID());
         setText(cached.text);
         setWeighted(cached.weighted);
         setStep(cached.step);
@@ -224,6 +229,7 @@ export default function Editor({
     };
   }, [id, user?.address]);
   const localSnapshot = (): LocalDraft => ({
+    giveawayId: id || creationId,
     fields: {
       title: draft.title,
       description: draft.description,
@@ -256,6 +262,7 @@ export default function Editor({
     draft.rules,
     draft.winners,
     draft.reserves,
+    creationId,
     draft.listed,
     weighted,
     step,
@@ -411,7 +418,7 @@ export default function Editor({
       try {
         const result = await mutate(
           id ? "edit" : "create",
-          id || crypto.randomUUID(),
+          id || creationId,
           revision,
           d,
           setPhase,

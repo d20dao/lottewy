@@ -21,7 +21,7 @@ import { useAccount } from "wagmi";
 import { parseSiweMessage } from "viem/siwe";
 import type { Address } from "viem";
 import { walletConfig } from "./wallet-config";
-import { api } from "./api";
+import { api, clearPendingActions } from "./api";
 import { assert, CHAIN_ID } from "../shared/core";
 import { clearWalletDrafts } from "./editor-draft";
 type User = { address: Address; admin: boolean; suspended: number };
@@ -127,6 +127,7 @@ export default function WalletSession({ children }: { children: ReactNode }) {
       prior.current.toLowerCase() !== address?.toLowerCase()
     ) {
       clearWalletDrafts(prior.current);
+      clearPendingActions(prior.current);
       setUser(null);
       challenge.current = null;
       void api("/auth/logout", {}).catch(() => {});
@@ -179,6 +180,7 @@ export default function WalletSession({ children }: { children: ReactNode }) {
         },
         signOut: async () => {
           clearWalletDrafts(getAccount(walletConfig).address);
+          clearPendingActions(getAccount(walletConfig).address);
           setUser(null);
           challenge.current = null;
           await api("/auth/logout", {});
