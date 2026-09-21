@@ -1,0 +1,10 @@
+{
+ "name":"lottewy-testnet",
+ "account_id":"d9fa81565ed7a49a6076dba363d09f10",
+ "main":"worker/retired.ts",
+ "compatibility_date":"2026-09-01",
+ "workers_dev":false,
+ "preview_urls":false,
+ "routes":[{"pattern":"testnet.lottewy.com","custom_domain":true}],
+ "triggers":{"crons":[]}
+}

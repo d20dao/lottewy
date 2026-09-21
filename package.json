@@ -7,7 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "build:testnet": "node scripts/build-testnet.mjs",
-    "deploy:testnet": "npm run build:testnet && wrangler deploy --env testnet",
+    "deploy:testnet": "node scripts/deploy-testnet-retired.mjs",
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply DB --local",
     "contracts:compile": "node scripts/compile.mjs",

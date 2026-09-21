@@ -1,103 +1,70 @@
 # Lottewy
 
-An onchain-verifiable giveaway winner picker. English interface, Workers + D1, signed wallet authentication, JEV content review and a permissionless D20DAO consumer on **Arc Testnet only**.
+Verifiable giveaways for Discord communities, Web3 projects and public participant lists. Lottewy runs on **Arc Mainnet**, using D20DAO randomness and deterministic winner selection.
 
-## Local development
+- [Website](https://lottewy.com)
+- [Agent guide](https://lottewy.com/llms.txt)
+- [Separate x402 API](https://github.com/d20dao/lottewy-x402)
+- [Support](mailto:hello@lottewy.com)
 
-Requires Node 24 and npm. No production deployment is performed by these commands.
+## What it does
+
+Paste entries or import CSV/spreadsheet columns, choose winners and alternates, review the masked public list, then sign and save. The organizer pays Arc gas in native USDC and the D20DAO service fee when starting the draw. Lottewy adds no website platform fee and does not hold or distribute prizes.
+
+Equal chances are the default. Optional positive integer weights use a versioned selection algorithm without replacement. Result animations reveal the recorded outcome; they never select a different winner. Anyone can replay the selection and download its public proof JSON.
+
+Discord organizers verify a server using `/verify`, choose a channel the bot can access, and optionally require roles. Members join or leave through buttons until the deadline. The organizer starts the draw from the website after the roster closes. The bot updates the announcement and sends winner-only congratulations in bounded groups. Multiple authorized wallets can independently link the same server.
+
+## Privacy and moderation
+
+Raw entries and salts are restricted to the organizer. Public manifests mask non-wallet entries; wallet-address entries remain public. Unlisted pages are accessible by share link. The Entries dialog exposes Discord names, IDs and join times only to the organizer, with server-side pagination and authorization.
+
+Explorer listing is opt-in. An allowlisted admin can remove an individual giveaway from Explorer through a signed, audited action. This does not block its direct link, proof or execution. Public-content restriction is a separate moderation action. JEV and the local content filter review public title, description and rules before saving.
+
+Undrawn Discord registrations are cleaned up 30 days after closing or early cancellation. Minimal ID tombstones and signed audit records remain. Started, uncertain and completed onchain records are excluded from that cleanup.
+
+## Architecture
+
+- React, Vite and RainbowKit frontend.
+- Cloudflare Worker API and D1 persistence.
+- SIWE authentication, EIP-712 mutations, single-use nonces and an append-only action journal.
+- Permissionless UUPS consumer with explicit owner governance and authorized relayers.
+- Independent VRF/chain-binding checks and deterministic selection replay. Epoch source attestations rely on coordinator verification.
+
+The deployed consumer and implementation hashes are in `docs/lottewy-mainnet.json`. The `__LOTTEWY_MAINNET__` build flag selects one coherent chain, coordinator and consumer profile for both frontend and Worker. Do not mix profiles or import old payment/session journals into the live database.
+
+## Development
+
+Requires Node 24 and npm:
 
 ```sh
 npm ci
-npm run build
 npm run db:migrate
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The dev launcher runs Vite, local Wrangler and a background reconciliation timer. Local D1 data persists in `.wrangler/`. The site has no server-side CSV upload: CSV, TSV and pasted spreadsheet cells are parsed locally; only the selected entries enter the signed giveaway payload.
+The development launcher serves the UI at `http://127.0.0.1:5173` and uses an isolated local database. Real Discord setup continues on the live domain because Discord callbacks must reach the matching database.
 
-Place `JEV_API_KEY`, `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in the private `.env`. The dev launcher copies only these allowlisted Worker values to private `.dev.vars`; restart after changing them. Turnstile hostnames must include the serving domain (and `127.0.0.1` for local development). `VITE_WALLETCONNECT_PROJECT_ID` enables mobile QR and the full RainbowKit wallet menu. Without it, injected browser wallets work. No private key is forwarded to the frontend or Worker.
+Keep credentials in ignored `.env` / `.dev.vars` files. Website Worker secrets are limited to JEV, Turnstile and the three Discord settings. Wallet private keys are never sent to the website Worker or frontend. `VITE_WALLETCONNECT_PROJECT_ID` is the public client configuration for WalletConnect.
 
-The checked Arc testnet consumer address and runtime hash are already configured in `wrangler.jsonc`. Set `ADMIN_ADDRESSES` to a comma-separated list of authorized wallet addresses for admin access. This is a server-side allowlist, not a client-side role switch.
-
-## Included workflows
-
-- Landing, dashboard, entry editor, public explorer, permanent giveaway pages, result presentation, replay, share cards/QR, exports and admin screens.
-- Pasted mixed lists, local CSV/TSV entry and optional weight column mapping, append/explicit replace, undo, duplicate review and paginated public preview. One or several winners, with optional ordered alternates. Equal chances by default; optional public integer weights from 1 to 1,000 use versioned weighted sampling without replacement.
-- Bulk weighted text accepts `entry,weight` rows and quoted CSV names. The editor keeps a wallet-scoped, per-tab draft backup; review failures preserve edits and the current step. Explicit disconnects clear local wallet drafts.
-- Explorer pagination includes matching totals, numbered pages and 10/20/50 rows per page. The organizer details column stays sticky on desktop.
-- Explorer listing is an explicit signed opt-in. Unlisted giveaways remain accessible by public share link; they are not access-controlled private pages. Existing records default to unlisted. JEV checks public title, description and rules for profanity, hate and adult content before saving. Backend limits are 120 characters for titles and 4,000 for descriptions and rules.
-- Six optional result presentations: slot reel, decorative wheel, name scramble, countdown, balloon pop and scratch-to-reveal. All reveal the existing fixed result; keyboard alternatives, skip and reduced-motion behavior are supported.
-- Multiple winners automatically reveal in rounds of at most five simultaneous animations. The organizer advances each round after viewing its results. Result cards retain equal sizes; reduced motion can reveal immediately.
-- Download proof JSON independently verifies real VRF evidence before exporting the public manifest, commitments, public weights, selection trace, ordered results, VRF packet, public key and transaction references. Private raw entries and salts are excluded; demo exports are explicitly labeled.
-- Reveal modes are clickable visual cards. Verification shows actual hash inputs, Keccak derivation, unbiased range sampling and the selected entry in an animated calculation trace. Every winner/alternate can be inspected, paused and replayed; green verification states require the corresponding check to pass.
-- The official RainbowKit connection, account and SIWE authentication interfaces. The footer uses the unchanged official D20DAO icon from https://d20dao.org/icon.svg.
-- SIWE sessions, EIP-712 mutations, revision checks, single-use nonces and append-only action journal. Owner-only raw entry access; public masks are produced on the Worker.
-- UUPS upgradeable V2 consumer with explicit owner governance and implementation pins. Direct draws remain permissionless and charge no platform fee; users pay D20 and gas. An authorized service relayer can sponsor draws. The separate agent API owns all x402 payment handling; no payment middleware runs in this site.
-- Durable submission reservation, scheduled chain reconciliation, independent VRF verification and versioned offchain selection replay.
-- Before saving, the Worker checks a positive native Arc USDC balance, validates Turnstile, and enforces 3 review attempts per minute and 20 per hour per wallet. These are cost controls, not proof of unique identity. Production never skips missing Turnstile configuration.
-- The local content filter runs before JEV. Allowlisted admins can explicitly turn JEV off or on with a signed, revision-guarded action and recorded reason. Off uses local filtering; service errors never silently downgrade review. Local blacklists do not provide contextual classification.
-
-## Checks
-
-Public marketing metadata describes the Arc-based product without development or demo claims. Shared metadata renders into the initial Worker HTML response, including page-specific social previews for visible listed giveaways. Workspace, unlisted, hidden and agent pages stay noindex; testnet builds also disable indexing and emit an empty sitemap. The synthetic `/demo` route is available only through the Vite development app and returns 404 in production. Runtime wallet/transaction network labels still reflect the configured chain.
-
-Arc attribution uses the original black SVG from the official Circle brand kit, at 50 px height with 18 px clear space. Asset origin and checksum are recorded in `docs/brand-assets.json`. Lottewy keeps its own identity; Arc and D20DAO links describe infrastructure and randomness roles and do not claim a partnership or endorsement. General brand-use terms remain applicable to publication.
+## Validation and release
 
 ```sh
 npm test
-npm run contracts:compile
 npm run test:e2e
+npm run build:mainnet
 node scripts/check-secrets.mjs
 node scripts/check-staged-docs.mjs
 ```
 
-## Brand assets
+Browser tests require the running development server and Microsoft Edge. Paid or live-chain checks are opt-in; unit and browser fixtures do not prove a live paid API call.
 
-The SVG mark, outlined wordmark, favicon and OG layout are in `public/brand/`. Header/footer branding and generated share cards use the same assets. The social preview PNG is 1200 by 630 pixels; SVG/PNG/ICO favicons and an Apple touch icon are linked in the document head. Regenerate raster exports with `node scripts/render-brand.mjs` (requires installed Microsoft Edge). `npm run build:testnet` uses testnet.lottewy.com for canonical and social metadata, robots and sitemap URLs.
+For an authorized release, apply migrations with `wrangler d1 migrations apply DB --env mainnet --remote`, then use `npm run deploy:mainnet`. Upload an explicit secret allowlist, never an entire deployment environment. Contract deployment is a separate operation; ordinary Worker redeploys must not create a new consumer. Mainnet deployment checkpoints persist signed transactions before broadcast.
 
-Browser tests use installed Microsoft Edge and the running local app. The wallet test uses an ephemeral injected wallet to verify real zero-balance rejection, then mocked records for edit recovery. It does not send chain transactions or save remote giveaway records. Unit tests use an isolated SQL database and local Hardhat EVM. `LIVE_JEV_CHECK=1` enables a small paid provider smoke test; `LIVE_PROOF_CHECK=1` enables read-only live-chain browser proof checks.
+Uncertain transactions stay locked until reconciled. Never reset a reserved nonce, payment journal or ambiguous draw merely to retry. Discord announcements and winner notifications likewise avoid automatic duplicate sends after uncertain delivery.
 
-The active V2 deployment is recorded in `docs/lottewy-testnet.json`. Synthetic request **5262** exercised the authorized relayer path, D20DAO fulfillment and independent VRF/selection replay; its public fixture is `docs/testnet-v2-public-giveaway.json`. Browser live-proof checks use that fixture with real read-only RPC calls. This contract test does not claim to test an x402 payment. Older V1 evidence is retained as historical protocol vectors only.
+## Brand and community
 
-## Hosted testnet
+Brand assets are in `public/brand/`. Arc artwork follows its official usage guidance and attribution. Lottewy community links point to [D20DAO on X](https://x.com/d20dao), [Discord](https://discord.gg/7kxhnMQXEb) and [GitHub](https://github.com/d20dao).
 
-The `testnet` Wrangler environment targets `testnet.lottewy.com`, a separate remote D1 database and Arc Testnet. It uses production authentication and anti-bot behavior. The root environment remains local development. Do not deploy the root environment.
-
-After release approval, apply remote migrations with `wrangler d1 migrations apply DB --env testnet --remote`. The V2 binding uses a separate `lottewy-testnet-v2` database. Upload an explicit allowlist of `JEV_API_KEY`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` and the three Discord settings below with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
-
-## Discord registration
-
-The site supports collecting equal-chance entries with Discord Join and Leave buttons, then freezing the list for the organizer's usual wallet-driven draw. Creating a registration does not submit an onchain transaction. The closing time is enforced by the database even if the scheduled finalizer runs later. Discord IDs and display names stay in private entry storage; public manifests contain commitments and masked labels. One account per entry does not establish one human per entry.
-
-Set `DISCORD_APP_ID`, `DISCORD_APP_PUBLIC_KEY`, and `DISCORD_BOT_TOKEN` as Worker secrets. Never expose the bot token through Vite or commit it. Apply migrations 0009 and 0010 before enabling the feature. Configure the application's HTTPS interaction URL as `/api/discord/interactions`. Requests use Ed25519 verification, timestamp freshness, deduplication and rate limits. No Gateway connection or privileged intents are required.
-
-`node scripts/discord-command.mjs --preview` previews both commands without publishing. `--check` verifies the application identity without mutation. After explicit release approval, `DISCORD_PUBLISH_APPROVED=yes node scripts/discord-command.mjs --publish` upserts `/giveaway` and `/verify` individually. Use the equivalent environment-variable syntax for the host shell. Install with bot and applications.commands scopes and permission value 84992 (View Channel, Send Messages, Embed Links, Read Message History). Do not grant Administrator.
-
-An organizer signs in with a funded wallet, creates a ten-minute code and runs `/verify code` in the intended server as its owner or a member with Manage Server or Administrator permission. The site then lists channels where the bot has effective View Channel, Send Messages, Embed Links and Read Message History permissions, including channel overwrites. The organizer selects a channel and role requirements before opening giveaway details. Permissions are rechecked before publication. Each wallet has its own server link and one-time code; multiple authorized wallets can link the same server without accessing each other's giveaways. Creation passes the existing content review, Turnstile and signed-action checks. Up to five active registrations per wallet and 10,000 participants per registration are supported. Registration closes between two minutes and thirty days after creation. Winner and alternate counts, rules and the final participant list cannot be edited after publication. Insufficient participation creates no drawable giveaway.
-
-The scheduler closes registrations, snapshots entries and updates announcements. Uncertain message delivery never automatically creates a second announcement: the organizer can link the original message, or a signed Join/Leave interaction can recover its ID. Cancelled registrations remain closed during recovery. Discord delivery failures can delay announcement updates but never extend the entry deadline. `/giveaway id` displays the public result and links to verification; it does not reveal private participant identities.
-
-The Discord Worker endpoint and both application commands are enabled on `testnet.lottewy.com`. Discord validated the interaction endpoint, and the signed admin registration operation confirmed both commands through Discord's API. Full server verification, registration and draw interaction still requires an end-to-end check with an authorized Discord member. Local development uses a separate database and directs real Discord setup to testnet; do not generate a local code for the testnet endpoint.
-
-An active allowlisted admin can also register the fixed bundled commands through the existing wallet-signed action API: action type `register-discord-commands`, target `discord_commands`, expected revision `0`, payload `{ "confirm": true }`. This checks bot identity and performs name-based upserts without deleting unrelated commands. The signed action journal makes completed retries idempotent. Bot secrets remain in the Worker.
-
-Organizers can require up to ten server roles. A member needs any one selected role at join time; no selection allows everyone with channel access. The backend uses role IDs from Discord's signed interaction, never browser-provided membership. Leaving remains available if a role is subsequently removed. Roles and eligibility are fixed at publication; there is no continuous role revalidation after joining.
-
-The original announcement is edited as registration closes, the draw starts, and results arrive. Completed announcements show all winners as Discord user references, up to ten alternates, and links to the result, verification dialog and onchain transaction. Separate congratulations messages mention only verified winners, in groups of at most 50, without role or everyone mentions. Migration 0011 adds their persistent delivery queue: successful notices are not repeated, explicit rate limits back off, and ambiguous delivery is never automatically re-sent. Discord notification settings still apply. Winner identities are resolved from commitment-checked private openings only in that verified server channel; the public website manifest remains masked. Hidden results are removed from the announcement on the next synchronization and pending notices are cancelled.
-
-The organizer can open the Entries count on the registration or resulting giveaway page to inspect participant names, Discord IDs and join times. This list is paginated (maximum 50 per response), session-authorized against the campaign owner and never publicly cached. Another verified wallet on the same server does not gain access to this private list.
-
-Thirty days after the registration deadline (or an earlier cancellation), the scheduled cleanup removes an undrawn registration's entries, private chunks, revisions, reports and draft. It retains signed audit history and a minimal expired campaign tombstone to prevent ID reuse and retry the Discord expiry update. Any recorded start, attempt, chain event or non-draft giveaway excludes the record from this cleanup. Completed results and uncertain transactions are never purged by this rule. Cleanup does not erase historical backups; their retention is managed separately.
-
-## Remaining mainnet release work
-
-- Mainnet-specific chain/deployment/proof configuration and consumer deployment. Current code and published vectors intentionally remain testnet-only.
-- Privacy/retention policy, JEV corpus calibration, load testing and independent security review.
-- Current storage retains raw owner entries, salts, revisions and signed action history until an explicit retention/erasure feature is introduced. Account suspension blocks creating, editing and starting giveaways; it does not remove access to the owner's existing data or recovery paths. Admin authority is controlled separately by the server allowlist.
-- Ambiguous submission reservations remain locked. New EOA submissions reserve an explicit nonce; the recovery UI sends a zero-value same-nonce cancellation and unlocks only after a confirmed canonical receipt and absence of a draw. Confirmed matching reverted requests also release safely. Smart-wallet and legacy reservations without a known transaction nonce stay locked until an equivalent cancellation proof is available. No timeout-based unlock.
-- Full independent replay of epoch source attestations is not included. The verifier checks the VRF proof and chain bindings and relies on coordinator verification for those attestations.
-- The dependency audit has remaining moderate transitive wallet-library advisories. High and critical findings were removed; a production release requires reviewing the remaining upstream issues and the actual wallet support matrix.
-
-## Repository privacy
-
-Markdown is ignored by default. Only this README, `UI-CONTEXT.md` and the English `docs/IMPLEMENTATION.md` are allowlisted. Private Turkish decision/design documents must never be committed. The configured `.githooks/pre-commit` rejects unapproved Markdown paths and Turkish text in allowlisted Markdown. Secrets, local DBs, design references, screenshots and test artifacts are ignored.
+Secrets, databases, screenshots, artifacts and private documents are ignored. Only approved English Markdown is committed. Recovery bundles and credentials belong outside the repository.
