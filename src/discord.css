@@ -4,6 +4,10 @@
   margin: 0 0 30px;
   border-bottom: 1px solid var(--line);
 }
+.discord-empty-actions {
+  justify-content: center;
+  align-items: center;
+}
 .discord-entry-count {
   font: inherit;
   text-decoration: underline;

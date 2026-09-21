@@ -1334,7 +1334,7 @@ export function DiscordCampaignList({ user, onLogin, config }: Props) {
           <p>
             Verify a server channel to let your community join with a button.
           </p>
-          <div className="actions wrap">
+          <div className="actions wrap discord-empty-actions">
             {config?.discordInstallUrl && (
               <a
                 className="button secondary"
