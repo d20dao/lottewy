@@ -9,6 +9,11 @@ import type { DiscordEnv } from "./discord";
 import { campaignResultMessage } from "./discord-result-message";
 export type CampaignEnv = DiscordEnv & { DISCORD_BOT_TOKEN?: string };
 export class DiscordCampaignError extends Error {}
+export class DiscordRateLimitError extends DiscordCampaignError {
+  constructor(readonly retryAfter: number) {
+    super("Discord is temporarily busy. Please try again shortly.");
+  }
+}
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new DiscordCampaignError(message);
 }
@@ -62,17 +67,36 @@ export async function discordApi(
       headers: {
         Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
         "Content-Type": "application/json",
+        "User-Agent": "DiscordBot (https://lottewy.com, 1.0)",
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(8000),
     });
-    if (!response.ok) throw new Error();
+    if (response.status === 429) {
+      const data = (await response.json().catch(() => ({}))) as {
+        retry_after?: number;
+      };
+      const value = Number(
+        response.headers.get("Retry-After") || data.retry_after || 5,
+      );
+      throw new DiscordRateLimitError(
+        Number.isFinite(value)
+          ? Math.max(1, Math.ceil(value))
+          : 5,
+      );
+    }
+    if (!response.ok)
+      throw new DiscordCampaignError(
+        `Discord rejected this request (status ${response.status}). Check the bot permissions or try again later.`,
+      );
     if (response.status === 204) return null;
     return await response.json();
-  } catch {
+  } catch (error) {
+    if (error instanceof DiscordCampaignError) throw error;
+    const name = error instanceof Error ? error.name : "Unknown";
     throw new DiscordCampaignError(
-      "Discord could not complete this request. Check the bot permissions or try again later.",
+      `Discord connection failed (${name}). Check the bot permissions or try again later.`,
     );
   }
 }
@@ -654,13 +678,13 @@ export async function recoverCampaignMessage(
 export async function processDiscordCampaigns(env: CampaignEnv) {
   if (!env.DISCORD_BOT_TOKEN) return;
   const work = await env.DB.prepare(
-    `SELECT id FROM discord_campaigns WHERE status='publishing' OR status='closing' OR (status='open' AND ends_at<=unixepoch())
-   OR (message_id IS NOT NULL AND COALESCE(message_state,'')<>CASE WHEN status='ready' THEN COALESCE((SELECT 'result:'||CASE WHEN hidden=1 THEN 'hidden' ELSE g.status END FROM giveaways g WHERE g.id=discord_campaigns.id),'ready') ELSE status END AND status IN ('ready','insufficient','cancelled','expired')) ORDER BY checked_at LIMIT 3`,
+    `SELECT id FROM discord_campaigns WHERE checked_at<=unixepoch() AND (status='publishing' OR status='closing' OR (status='open' AND ends_at<=unixepoch())
+   OR (message_id IS NOT NULL AND COALESCE(message_state,'')<>CASE WHEN status='ready' THEN COALESCE((SELECT 'result:'||CASE WHEN hidden=1 THEN 'hidden' ELSE g.status END FROM giveaways g WHERE g.id=discord_campaigns.id),'ready') ELSE status END AND status IN ('ready','insufficient','cancelled','expired'))) ORDER BY checked_at LIMIT 3`,
   ).all<{ id: string }>();
   for (const item of work.results) {
     const token = crypto.randomUUID();
     const claimed = await env.DB.prepare(
-      "UPDATE discord_campaigns SET lease_token=?,lease_until=unixepoch()+60 WHERE id=? AND lease_until<unixepoch()",
+      "UPDATE discord_campaigns SET lease_token=?,lease_until=unixepoch()+60 WHERE id=? AND lease_until<unixepoch() AND checked_at<=unixepoch()",
     )
       .bind(token, item.id)
       .run();
@@ -843,7 +867,15 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
           .bind(messageState, row.id, row.status, token)
           .run();
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DiscordRateLimitError) {
+        await env.DB.prepare(
+          "UPDATE discord_campaigns SET publish_started_at=CASE WHEN status IN ('publishing','cancelled') AND message_id IS NULL THEN NULL ELSE publish_started_at END,error_code='DISCORD_RATE_LIMITED',checked_at=unixepoch()+? WHERE id=? AND lease_token=? AND lease_until>unixepoch()",
+        )
+          .bind(error.retryAfter, item.id, token)
+          .run();
+        continue;
+      }
       await env.DB.prepare(
         "UPDATE discord_campaigns SET status=CASE WHEN status='publishing' AND publish_started_at IS NOT NULL THEN 'publishing_uncertain' ELSE status END,error_code='DISCORD_PROCESSING_UNAVAILABLE' WHERE id=? AND lease_token=? AND lease_until>unixepoch()",
       )
@@ -851,7 +883,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
         .run();
     } finally {
       await env.DB.prepare(
-        "UPDATE discord_campaigns SET checked_at=unixepoch(),lease_token=NULL,lease_until=0 WHERE id=? AND lease_token=?",
+        "UPDATE discord_campaigns SET checked_at=MAX(checked_at,unixepoch()),lease_token=NULL,lease_until=0 WHERE id=? AND lease_token=?",
       )
         .bind(item.id, token)
         .run();

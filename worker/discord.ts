@@ -321,10 +321,13 @@ async function deliver(
     try {
       const response = await fetch(url, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "DiscordBot (https://lottewy.com, 1.0)",
+        },
         body: JSON.stringify(message),
         signal: AbortSignal.timeout(8000),
-        redirect: "error",
+        redirect: "manual",
       });
       if (response.ok) return;
       if (response.status !== 429 && response.status < 500) break;

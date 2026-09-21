@@ -29,6 +29,7 @@ let db: ReturnType<typeof database>,
   posts: any[],
   patches: any[],
   failPost: boolean,
+  rateLimitPost: boolean,
   hasManager: boolean;
 beforeEach(() => {
   db = database();
@@ -48,6 +49,7 @@ beforeEach(() => {
   posts = [];
   patches = [];
   failPost = false;
+  rateLimitPost = false;
   hasManager = true;
   vi.stubGlobal(
     "fetch",
@@ -90,6 +92,11 @@ beforeEach(() => {
         });
       if (options.method === "POST" && path.endsWith("/messages")) {
         posts.push(JSON.parse(options.body));
+        if (rateLimitPost)
+          return Response.json(
+            { retry_after: 30 },
+            { status: 429, headers: { "Retry-After": "30" } },
+          );
         if (failPost) throw new Error("Lost reply");
         return Response.json({ id: message, channel_id: channel });
       }
@@ -100,6 +107,56 @@ beforeEach(() => {
       throw new Error("Unexpected Discord route");
     }),
   );
+});
+it("retries an explicit rate limit after its delay with the same announcement nonce", async () => {
+  const { id } = await create();
+  rateLimitPost = true;
+  await processDiscordCampaigns(env);
+  expect((await campaignRow(env, id))!.status).toBe("publishing");
+  expect((await campaignRow(env, id))!.publish_started_at).toBeNull();
+  await processDiscordCampaigns(env);
+  expect(posts).toHaveLength(1);
+  clock += 30;
+  rateLimitPost = false;
+  await processDiscordCampaigns(env);
+  expect(posts).toHaveLength(2);
+  expect(posts[0].nonce).toBe(posts[1].nonce);
+  expect((await campaignRow(env, id))!.status).toBe("open");
+});
+it("does not let a stale worker selection bypass a newer rate-limit backoff", async () => {
+  await create();
+  rateLimitPost = true;
+  const prepare = db.prepare.bind(db);
+  let intercept = true,
+    release!: () => void,
+    selected!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve)),
+    snapshotReady = new Promise<void>((resolve) => (selected = resolve));
+  env.DB = {
+    ...db,
+    prepare: (sql: string) => {
+      const statement = prepare(sql);
+      if (sql.includes("SELECT id FROM discord_campaigns") && intercept) {
+        intercept = false;
+        return {
+          ...statement,
+          all: async () => {
+            const rows = await statement.all();
+            selected();
+            await held;
+            return rows;
+          },
+        };
+      }
+      return statement;
+    },
+  };
+  const stale = processDiscordCampaigns(env);
+  await snapshotReady;
+  await processDiscordCampaigns(env);
+  release();
+  await stale;
+  expect(posts).toHaveLength(1);
 });
 it("filters channels using effective bot overwrites, not just server permissions", () => {
   const g = {

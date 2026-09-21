@@ -35,6 +35,7 @@ if (mode === "--preview") {
 const headers = {
   Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
   "Content-Type": "application/json",
+  "User-Agent": "DiscordBot (https://lottewy.com, 1.0)",
 };
 const response = await fetch(
   "https://discord.com/api/v10/oauth2/applications/@me",
