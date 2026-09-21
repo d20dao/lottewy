@@ -1,0 +1,161 @@
+{
+  "storage": [
+    {
+      "astId": 479,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "draws",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_bytes32,t_struct(Draw)474_storage)"
+    },
+    {
+      "astId": 483,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "requestKeys",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_bytes32)"
+    },
+    {
+      "astId": 487,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "knownRequests",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_uint256,t_bool)"
+    },
+    {
+      "astId": 491,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "overpaymentCredits",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 495,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "relayers",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 497,
+      "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+      "label": "entered",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_bool"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_struct(Draw)474_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct LottewyConsumerV2.Draw)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Draw)474_storage"
+    },
+    "t_mapping(t_uint256,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_uint256,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
+    },
+    "t_struct(Draw)474_storage": {
+      "encoding": "inplace",
+      "label": "struct LottewyConsumerV2.Draw",
+      "members": [
+        {
+          "astId": 465,
+          "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+          "label": "owner",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 467,
+          "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+          "label": "commitment",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 469,
+          "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+          "label": "requestId",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 471,
+          "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+          "label": "word",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 473,
+          "contract": "LottewyConsumerV2.sol:LottewyConsumerV2",
+          "label": "status",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint8"
+        }
+      ],
+      "numberOfBytes": "160"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint8": {
+      "encoding": "inplace",
+      "label": "uint8",
+      "numberOfBytes": "1"
+    }
+  }
+}

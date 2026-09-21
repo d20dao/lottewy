@@ -1,0 +1,72 @@
+{
+  "id": "bfeb988c-967b-463a-9c2d-c54b87e2a61c",
+  "slug": "bfeb988c-967b-463a-9c2d-c54b87e2a61c",
+  "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+  "revision": 1,
+  "status": "completed",
+  "created": 1790002561,
+  "listed": false,
+  "manifest": {
+    "version": 1,
+    "algorithm": "lottewy-weighted-reject-v2",
+    "normalization": "nfc-trim-v1",
+    "masking": "strict-v2-en",
+    "id": "bfeb988c-967b-463a-9c2d-c54b87e2a61c",
+    "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+    "revision": 1,
+    "title": "V2 synthetic verification",
+    "description": "Synthetic contract integration test. No prize.",
+    "rules": "Free synthetic entries. Weights are public. This test does not award a prize.",
+    "winners": 2,
+    "reserves": 1,
+    "entries": [
+      {
+        "id": 1,
+        "label": "Entry #1",
+        "commitment": "0x3c822ffce8dee43b34de1741ea832deb5d91edbfb4ebc979b8795e0b840502c2",
+        "weight": 1
+      },
+      {
+        "id": 2,
+        "label": "Entry #2",
+        "commitment": "0x77aa4cb8708ffd90cfdf9530508cd38f90a0063141c8c1598c7feb9bd7302eee",
+        "weight": 2
+      },
+      {
+        "id": 3,
+        "label": "Entry #3",
+        "commitment": "0x0677058e553ecdd47cca61d0433b5555ca75f5bd4c054e6e4f1e931a80bebf1b",
+        "weight": 3
+      }
+    ]
+  },
+  "commitment": "0xabd41206a1b6583ac6db7f7329cc736ffffb9e27f9722dbfe15b9500cf51f28d",
+  "refundAddress": "0xAf3a40fF429e2976958912a9AB7Dbf2fa7d1E043",
+  "execution": {
+    "value": "80000000000000000",
+    "gas": "540150",
+    "maxFeePerGas": "65000000000",
+    "reservedUnits": 115110,
+    "balanceUnits": 993221,
+    "blockNumber": 63269185
+  },
+  "review": {
+    "mode": "synthetic",
+    "model": "none",
+    "policy": "contract-integration-test-only"
+  },
+  "evidence": {
+    "word": "0xec7dfcf6b467e768485345228d8dd543b5c715dcaff8bff685a8125476c9dfb0",
+    "requestId": "5262",
+    "txHash": "0x9c63936b33073b734e954d5c4929363712c472deb9f0d61c1d209bf63f2b2979",
+    "blockHash": "0x861b273a78ebb4b3c1fba1263ab7911f74db7dc51e46a7825f0af8d6d29d18a3",
+    "blockNumber": "63269190",
+    "logIndex": 47,
+    "consumer": "0x8c190538f506c305a16576cbf832877e3775700b",
+    "coordinator": "0xd20DA0FF9087d053f0291524Eac12abA1ADBd945",
+    "chainId": 5042002,
+    "fulfillmentBlockHash": "0x7c7278de4bbaf118903d1be2c315222d9e9eb75a1eba79e6596af1f1da04828f",
+    "fulfillmentBlockNumber": "63269198",
+    "fulfillmentTxHash": "0xd1b28e19a8d3b2df3a8a4269cd89ccfcec1bd164eedc239cf49ffefc2defcaac"
+  }
+}

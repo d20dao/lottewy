@@ -25,6 +25,7 @@ vi.mock("viem", async (importOriginal) => {
       if (value === "0x01") return c.default.codeHash;
       if (value === "0x02") return d.default.coordinatorImplementationCodeHash;
       if (value === "0x03") return d.default.epochImplementationCodeHash;
+      if (value === "0x04") return c.default.implementationCodeHash;
       return actual.keccak256(value);
     },
   };
@@ -116,6 +117,7 @@ function deliveredLog(overrides: Record<string, any> = {}) {
 beforeEach(() => {
   g = structuredClone(fixture) as Giveaway;
   Object.assign(g.evidence!, {
+    consumer,
     txHash: requestTx,
     blockHash: requestHash,
     blockNumber: "100",
@@ -185,9 +187,9 @@ beforeEach(() => {
         ? "0x01"
         : address === deployment.coordinatorImplementation
           ? "0x02"
-          : "0x03",
+          : address === consumerDeployment.implementationAddress ? '0x04' : "0x03",
     getStorageAt: async ({ address }: any) =>
-      `0x${"0".repeat(24)}${(address === deployment.coordinator ? deployment.coordinatorImplementation : deployment.epochImplementation).slice(2)}`,
+      `0x${"0".repeat(24)}${(address === consumer ? consumerDeployment.implementationAddress : address === deployment.coordinator ? deployment.coordinatorImplementation : deployment.epochImplementation).slice(2)}`,
     readContract: async ({ functionName }: any) =>
       functionName === "coordinator"
         ? COORDINATOR

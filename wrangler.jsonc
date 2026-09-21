@@ -6,28 +6,37 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/g/*"],
+    "run_worker_first": [
+      "/api/*",
+      "/g/*",
+      "/agent/*"
+    ]
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "lottewy",
-      "database_id": "00000000-0000-0000-0000-000000000001",
-      "migrations_dir": "migrations",
-    },
+      "database_name": "lottewy-v2",
+      "database_id": "00000000-0000-0000-0000-000000000002",
+      "migrations_dir": "migrations"
+    }
   ],
   "vars": {
     "APP_ORIGIN": "http://127.0.0.1:5173",
     "MODE": "development",
     "JEV_MODE": "live",
     "JEV_MODEL": "jev-1.13.0",
-    "RPC_URL": "https://rpc.testnet.arc.io",
+    "RPC_URL": "https://rpc.drpc.testnet.arc.io",
     "ADMIN_ADDRESSES": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
-    "CONSUMER_ADDRESS": "0xc79366c5a906f8f644830747a6096e004c4d2297",
-    "CONSUMER_CODE_HASH": "0xb84b25c6893351395167283fb37c2c7abbfed734a6e043967a6ae6d295373dc5",
+    "CONSUMER_ADDRESS": "0x8c190538f506c305a16576cbf832877e3775700b",
+    "CONSUMER_CODE_HASH": "0x752a0da23ba14c1b45e3f6a8b224df28db6fec0631818838fbdbd965897b3463",
+    "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
+    "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
+    "AGENT_API_ORIGIN": "https://api.lottewy.com"
   },
   "triggers": {
-    "crons": ["* * * * *"],
+    "crons": [
+      "* * * * *"
+    ]
   },
   "env": {
     "testnet": {
@@ -35,7 +44,12 @@
       "account_id": "d9fa81565ed7a49a6076dba363d09f10",
       "workers_dev": false,
       "preview_urls": false,
-      "routes": [{"pattern":"testnet.lottewy.com","custom_domain":true}],
+      "routes": [
+        {
+          "pattern": "testnet.lottewy.com",
+          "custom_domain": true
+        }
+      ],
       "vars": {
         "APP_ORIGIN": "https://testnet.lottewy.com",
         "MODE": "production",
@@ -43,11 +57,25 @@
         "JEV_MODEL": "jev-1.13.0",
         "RPC_URL": "https://rpc.drpc.testnet.arc.io",
         "ADMIN_ADDRESSES": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
-        "CONSUMER_ADDRESS": "0xc79366c5a906f8f644830747a6096e004c4d2297",
-        "CONSUMER_CODE_HASH": "0xb84b25c6893351395167283fb37c2c7abbfed734a6e043967a6ae6d295373dc5"
+        "CONSUMER_ADDRESS": "0x8c190538f506c305a16576cbf832877e3775700b",
+        "CONSUMER_CODE_HASH": "0x752a0da23ba14c1b45e3f6a8b224df28db6fec0631818838fbdbd965897b3463",
+        "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
+        "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
+        "AGENT_API_ORIGIN": "https://api.lottewy.com"
       },
-      "d1_databases": [{"binding":"DB","database_name":"lottewy-testnet","database_id":"468b722b-641f-4f63-bc38-ae3811443e60","migrations_dir":"migrations"}],
-      "triggers":{"crons":["* * * * *"]}
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lottewy-testnet-v2",
+          "database_id": "96365b52-0111-45ea-b0a3-0b13a6cff5c4",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "triggers": {
+        "crons": [
+          "* * * * *"
+        ]
+      }
     }
   }
 }

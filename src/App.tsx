@@ -195,7 +195,7 @@ function pageMetadata(
   if (indexable && path) {
     const canonical = document.createElement("link");
     canonical.rel = "canonical";
-    canonical.href = `${import.meta.env.VITE_PUBLIC_ORIGIN || 'https://lottewy.com'}${path}`;
+    canonical.href = `${import.meta.env.VITE_PUBLIC_ORIGIN || "https://lottewy.com"}${path}`;
     document.head.appendChild(canonical);
     setMeta("og:url", canonical.href, true);
   }
@@ -214,9 +214,16 @@ function Footer() {
         </a>
         <p>Your community. A result anyone can verify.</p>
       </div>
-      <a className="footer-provider" href="https://d20dao.org" target="_blank" rel="noreferrer">
+      <a
+        className="footer-provider"
+        href="https://d20dao.org"
+        target="_blank"
+        rel="noreferrer"
+      >
         <img src="/d20dao.svg" width="24" height="24" alt="" />
-        <span>Powered by <strong>D20DAO</strong></span>
+        <span>
+          Powered by <strong>D20DAO</strong>
+        </span>
       </a>
     </footer>
   );
@@ -570,7 +577,7 @@ export default function App() {
             <History user={user} />
           ) : path === "/admin" ? (
             <Admin user={user} run={run} busy={busy} mutate={mutate} />
-          ) : isDemo || path.startsWith("/g/") ? (
+          ) : isDemo || path.startsWith("/g/") || path.startsWith("/agent/") ? (
             <GiveawayPage
               isDemo={isDemo}
               user={user}
@@ -1031,6 +1038,7 @@ function GiveawayPage({
   switchChain: any;
 }) {
   const slug = location.pathname.split("/")[2];
+  const isAgent = location.pathname.startsWith("/agent/");
   const [g, setG] = useState<Giveaway | null>(isDemo ? demo : null),
     [error, setError] = useState(""),
     [revealed, setRevealed] = useState(false),
@@ -1048,9 +1056,28 @@ function GiveawayPage({
     (syncId?: string) => {
       if (loading.current) return loading.current;
       const request = (
-        syncId
-          ? api(`/giveaways/${syncId}/sync`, {})
-          : api(`/giveaways/${slug}`)
+        isAgent
+          ? fetch(
+              `${config?.agentApiOrigin || "https://api.lottewy.com"}/v1/giveaways/${encodeURIComponent(slug)}`,
+            ).then(async (response) => {
+              const result = (await response.json()) as {
+                giveaway?: Giveaway;
+                error?: string;
+                status: string;
+              };
+              if (!response.ok || !result.giveaway)
+                throw new Error(
+                  result.error ||
+                    "The agent operation has not published a giveaway yet.",
+                );
+              const status = ["paid", "submitting"].includes(result.status)
+                ? "pending"
+                : result.status;
+              return { ...result.giveaway, status };
+            })
+          : syncId
+            ? api(`/giveaways/${syncId}/sync`, {})
+            : api(`/giveaways/${slug}`)
       )
         .then((next: Giveaway) => {
           if (!mounted.current) return;
@@ -1068,7 +1095,12 @@ function GiveawayPage({
       loading.current = request;
       return request;
     },
-    [slug,user?.address],
+    [
+      slug,
+      user?.address,
+      isAgent,
+      isAgent ? config?.agentApiOrigin : undefined,
+    ],
   );
   const word = isDemo
     ? demoWord
@@ -1148,7 +1180,7 @@ function GiveawayPage({
         <code>{g.commitment}</code>
       </Empty>
     );
-  const owner = user?.address === g.owner,
+  const owner = !isAgent && user?.address === g.owner,
     entries = g.manifest.entries;
   const prepare = () =>
     run(async () => {
@@ -1514,9 +1546,12 @@ function GiveawayPage({
           notify={notify}
         />
       )}
-      {owner && g.recovery && g.recovery.refundCredit !== undefined && g.recovery.overpaymentCredit !== undefined && (
-        <Recovery g={g} run={run} busy={busy} write={write} notify={notify} />
-      )}
+      {owner &&
+        g.recovery &&
+        g.recovery.refundCredit !== undefined &&
+        g.recovery.overpaymentCredit !== undefined && (
+          <Recovery g={g} run={run} busy={busy} write={write} notify={notify} />
+        )}
       <section className="proof-strip">
         <div>
           <ShieldCheck />
@@ -1633,7 +1668,7 @@ function GiveawayPage({
               <Download size={17} />
               {owner ? "Organizer export" : "Download public manifest"}
             </button>
-            {!isDemo && (
+            {!isDemo && !isAgent && (
               <button
                 className="text-button"
                 onClick={() => setReportOpen(true)}

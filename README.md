@@ -32,7 +32,7 @@ The checked Arc testnet consumer address and runtime hash are already configured
 - Reveal modes are clickable visual cards. Verification shows actual hash inputs, Keccak derivation, unbiased range sampling and the selected entry in an animated calculation trace. Every winner/alternate can be inspected, paused and replayed; green verification states require the corresponding check to pass.
 - The official RainbowKit connection, account and SIWE authentication interfaces. The footer uses the unchanged official D20DAO icon from https://d20dao.org/icon.svg.
 - SIWE sessions, EIP-712 mutations, revision checks, single-use nonces and append-only action journal. Owner-only raw entry access; public masks are produced on the Worker.
-- Minimal non-upgradeable consumer with no platform fee or revenue recipient. D20 fee and gas are paid by the user. Overpayment, callback retry, expiry refund and refund credits are separate paths.
+- UUPS upgradeable V2 consumer with explicit owner governance and implementation pins. Direct draws remain permissionless and charge no platform fee; users pay D20 and gas. An authorized service relayer can sponsor draws. The separate agent API owns all x402 payment handling; no payment middleware runs in this site.
 - Durable submission reservation, scheduled chain reconciliation, independent VRF verification and versioned offchain selection replay.
 - Before saving, the Worker checks a positive native Arc USDC balance, validates Turnstile, and enforces 3 review attempts per minute and 20 per hour per wallet. These are cost controls, not proof of unique identity. Production never skips missing Turnstile configuration.
 - The local content filter runs before JEV. Allowlisted admins can explicitly turn JEV off or on with a signed, revision-guarded action and recorded reason. Off uses local filtering; service errors never silently downgrade review. Local blacklists do not provide contextual classification.
@@ -53,13 +53,13 @@ The SVG mark, outlined wordmark, favicon and OG layout are in `public/brand/`. H
 
 Browser tests use installed Microsoft Edge and the running local app. The wallet test uses an ephemeral injected wallet to verify real zero-balance rejection, then mocked records for edit recovery. It does not send chain transactions or save remote giveaway records. Unit tests use an isolated SQL database and local Hardhat EVM. `LIVE_JEV_CHECK=1` enables a small paid provider smoke test; `LIVE_PROOF_CHECK=1` enables read-only live-chain browser proof checks.
 
-The real testnet integration is opt-in through `RUN_TESTNET=1`, with an optional `RESUME_ID` for read-only replay of an existing result. Never run it against mainnet. It rejects any chain other than 5042002 and verifies official deployment implementations before transactions. Public evidence: `docs/lottewy-testnet.json`, `docs/testnet-e2e.json`, `docs/testnet-public-manifest.json`. Test request **5256** passed SIWE, real JEV review, local D1 persistence, consumer payment, D20DAO fulfillment and independent VRF/selection replay.
+The active V2 deployment is recorded in `docs/lottewy-testnet.json`. Synthetic request **5262** exercised the authorized relayer path, D20DAO fulfillment and independent VRF/selection replay; its public fixture is `docs/testnet-v2-public-giveaway.json`. Browser live-proof checks use that fixture with real read-only RPC calls. This contract test does not claim to test an x402 payment. Older V1 evidence is retained as historical protocol vectors only.
 
 ## Hosted testnet
 
 The `testnet` Wrangler environment targets `testnet.lottewy.com`, a separate remote D1 database and Arc Testnet. It uses production authentication and anti-bot behavior. The root environment remains local development. Do not deploy the root environment.
 
-Apply remote migrations with `wrangler d1 migrations apply lottewy-testnet --env testnet --remote`. Store only `JEV_API_KEY`, `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
+Apply remote migrations with `wrangler d1 migrations apply DB --env testnet --remote`. The V2 binding uses a separate `lottewy-testnet-v2` database. Store only `JEV_API_KEY`, `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
 
 ## Remaining mainnet release work
 

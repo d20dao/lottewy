@@ -9,13 +9,15 @@
     "build:testnet": "node scripts/build-testnet.mjs",
     "deploy:testnet": "npm run build:testnet && wrangler deploy --env testnet",
     "test": "vitest run",
-    "db:migrate": "wrangler d1 migrations apply lottewy --local",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
     "contracts:compile": "node scripts/compile.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@2toad/profanity": "3.3.0",
     "@d20dao/vrf-sdk": "^0.4.0",
+    "@openzeppelin/contracts": "5.6.1",
+    "@openzeppelin/contracts-upgradeable": "5.6.1",
     "@rainbow-me/rainbowkit": "^2.2.11",
     "@tanstack/react-query": "^5.103.1",
     "@wagmi/core": "^2.22.1",

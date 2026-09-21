@@ -39,8 +39,11 @@ export type Env = ReviewEnv & {
   ADMIN_ADDRESSES: string;
   CONSUMER_ADDRESS: string;
   CONSUMER_CODE_HASH?: string;
+  CONSUMER_IMPLEMENTATION_ADDRESS?: string;
+  CONSUMER_IMPLEMENTATION_CODE_HASH?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
+  AGENT_API_ORIGIN?: string;
 };
 type Row = {
   id: string;
@@ -205,6 +208,12 @@ export default {
     const url = new URL(req.url),
       path = url.pathname;
     if (!path.startsWith("/api/")) {
+      if (path.startsWith("/agent/")) {
+        const asset = await env.ASSETS.fetch(req);
+        const response = new Response(asset.body, asset);
+        response.headers.set("X-Robots-Tag", "noindex, nofollow");
+        return response;
+      }
       if (path.startsWith("/g/")) {
         const slug = path.split("/")[2];
         const row = await env.DB.prepare(
@@ -246,6 +255,9 @@ export default {
           jevConfigured: !!env.JEV_API_KEY,
           jevEnabled: (await reviewSettings(env)).jevEnabled,
           turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
+          agentApiOrigin: env.AGENT_API_ORIGIN || null,
+          consumerVersion: 2,
+          upgradeable: true,
           chainId: CHAIN_ID,
           consumer: env.CONSUMER_ADDRESS || null,
           chainReady: !!env.CONSUMER_ADDRESS && !!env.CONSUMER_CODE_HASH,

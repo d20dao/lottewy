@@ -52,6 +52,32 @@ async function validateClient(env: Env) {
       coordinator.toLowerCase() === COORDINATOR.toLowerCase(),
     "Consumer deployment verification failed",
   );
+  if (
+    env.CONSUMER_IMPLEMENTATION_ADDRESS ||
+    env.CONSUMER_IMPLEMENTATION_CODE_HASH
+  ) {
+    assert(
+      env.CONSUMER_IMPLEMENTATION_ADDRESS &&
+        env.CONSUMER_IMPLEMENTATION_CODE_HASH,
+      "Consumer implementation configuration is incomplete",
+    );
+    const [implementationSlot, code] = await Promise.all([
+      client.getStorageAt({
+        address,
+        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      }),
+      client.getCode({
+        address: env.CONSUMER_IMPLEMENTATION_ADDRESS as Address,
+      }),
+    ]);
+    assert(
+      implementationSlot?.slice(-40).toLowerCase() ===
+        env.CONSUMER_IMPLEMENTATION_ADDRESS.slice(2).toLowerCase() &&
+        code &&
+        keccak256(code) === env.CONSUMER_IMPLEMENTATION_CODE_HASH,
+      "Lottewy implementation changed",
+    );
+  }
   assert(
     implementationCode &&
       keccak256(implementationCode) ===

@@ -77,6 +77,7 @@ export function proofBundle(
           chainId: e!.chainId,
           coordinator: e!.coordinator,
           consumer: e!.consumer,
+          refundAddress: g.refundAddress || g.owner,
           requestId: e!.requestId,
           requestTransaction: e!.txHash,
           requestBlock: {

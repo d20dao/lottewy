@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { select, hash } from "../../shared/core";
+import giveaway from "../../docs/testnet-v2-public-giveaway.json" with { type: "json" };
 for (const live of [false, true])
   test(`${live ? "real onchain" : "demo"} proof JSON download can reproduce the recorded winner order`, async ({
     page,
@@ -9,7 +10,11 @@ for (const live of [false, true])
       live && process.env.LIVE_PROOF_CHECK !== "1",
       "Read-only live verification is opt-in",
     );
-    await page.goto(live ? "/g/bd826c5d-8fbe-4636-8f19-36f9a106da8b" : "/demo");
+    if (live)
+      await page.route(`**/api/giveaways/${giveaway.slug}`, (route) =>
+        route.fulfill({ json: giveaway }),
+      );
+    await page.goto(live ? `/g/${giveaway.slug}` : "/demo");
     await page
       .getByRole("button", { name: "Reveal instantly", exact: true })
       .click();
@@ -32,7 +37,7 @@ for (const live of [false, true])
     ).toBe(true);
     expect(bundle.kind).toBe(live ? "onchain" : "demo");
     if (live) {
-      expect(bundle.onchain.requestId).toBe("5259");
+      expect(bundle.onchain.requestId).toBe(giveaway.evidence.requestId);
       expect(bundle.onchain.vrf.packet).toMatch(/^0x[0-9a-f]+$/i);
       expect(bundle.onchain.vrf.publicKey).toHaveLength(2);
     } else expect(bundle.onchain).toBeNull();

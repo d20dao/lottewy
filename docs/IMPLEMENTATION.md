@@ -1,8 +1,18 @@
-# Lottewy V1 implementation
+# Lottewy V2 implementation
 
-The user selected a permissionless, non-upgradeable consumer. Lottewy publication requires signed wallet authentication, ownership checks and JEV review. The interface is English. Turkish Markdown must never enter commits.
+Direct contract access remains permissionless. The V2 consumer uses a UUPS proxy with a two-step owner role and explicit upgrade authority. Lottewy publication requires signed wallet authentication, ownership checks and JEV review. The interface is English. Turkish Markdown must never enter commits.
 
-No platform fees, x402, R2, subscriptions, sponsor wallets, entry payments, prize custody or mainnet operations.
+This repository does not implement x402 payments, subscriptions, entry payments, prize custody or mainnet operations. The separate agent API can use an explicitly authorized contract relayer; the site only reads its public result records.
+
+## V2 governance and persistence
+
+The proxy initializes ownership once and disables implementation initialization. Upgrades require the owner and retain the same D20 coordinator. Owner renunciation is disabled. Public verification and Worker reconciliation pin both proxy and implementation code and the ERC-1967 implementation slot; an upgrade requires reviewing and updating those pins. This contract is upgradeable, not immutable.
+
+Direct `start` binds the caller. `startFor` checks an EIP-712 owner authorization bound to executor, proxy, chain, commitment, fee cap and deadline. `startSponsored` trusts an allowlisted service relayer to authenticate its payer offchain. None of these paths permits a second request for an existing owner/giveaway key. Coordinator expiry refunds go to the draw owner for direct/signed-intent requests, and to the native-fee payer for sponsored requests. API payment refunds are a separate service responsibility. Overpayment returns to the transaction payer.
+
+V2 starts with a separate D1 database; V1 records and deployments are not migrated. Historical V1 vectors document the old deployment only. Large private archives and signed action payloads are stored in integrity-checked chunks in the same atomic batch as their references. One wallet can reserve only one unconfirmed draw at a time. Browser save retries preserve both giveaway identity and signed action identity after an uncertain response.
+
+The website's signed action and recovery workflow supports direct wallet `start` calls only. Sponsored records are stored and reconciled by the separate agent service, including their explicit refund recipient. `/agent/:id` is a read-only viewer and never sends those records into the website's mutation or reconciliation routes. `startFor` is a contract primitive, not an enabled website workflow.
 
 ## Canonical serialization and selection
 

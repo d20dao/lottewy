@@ -40,7 +40,7 @@ function receiptLogs(receipt: TransactionReceipt, address: Address) {
 /** Independent RPC reads plus pinned deployment/key; never trusts DB word alone.
  * Epoch source attestations remain under the coordinator/registry onchain trust model.
  */
-export async function verifyD20(g: Giveaway) {
+export async function verifyD20(g: Giveaway, rpcUrl?: string) {
   const evidence = g.evidence;
   assert(
     evidence &&
@@ -48,7 +48,7 @@ export async function verifyD20(g: Giveaway) {
       evidence.coordinator.toLowerCase() === COORDINATOR.toLowerCase(),
     "Evidence network or coordinator mismatch",
   );
-  const rpc = createPublicClient({ chain: arc, transport: http() });
+  const rpc = createPublicClient({ chain: arc, transport: http(rpcUrl) });
   assert((await rpc.getChainId()) === CHAIN_ID, "Incorrect RPC network");
   const finalized = await finalizedBlock(rpc);
   const requestId = BigInt(evidence.requestId),
@@ -68,6 +68,25 @@ export async function verifyD20(g: Giveaway) {
   );
   const slot =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
+  const consumerDeployment = lottewyDeployment as typeof lottewyDeployment & {
+    implementationAddress?: string;
+    implementationCodeHash?: string;
+  };
+  if (consumerDeployment.implementationAddress) {
+    const [implementationSlot, code] = await Promise.all([
+      rpc.getStorageAt({ address: consumer, slot }),
+      rpc.getCode({
+        address: consumerDeployment.implementationAddress as Address,
+      }),
+    ]);
+    assert(
+      implementationSlot?.slice(-40).toLowerCase() ===
+        consumerDeployment.implementationAddress.slice(2).toLowerCase() &&
+        code &&
+        keccak256(code) === consumerDeployment.implementationCodeHash,
+      "Lottewy implementation changed",
+    );
+  }
   for (const [proxy, implementation, expected] of [
     [
       deployment.coordinator,
@@ -148,7 +167,8 @@ export async function verifyD20(g: Giveaway) {
   );
   assert(
     request.consumer.toLowerCase() === consumer.toLowerCase() &&
-      request.refundAddress.toLowerCase() === g.owner &&
+      request.refundAddress.toLowerCase() ===
+        (g.refundAddress || g.owner).toLowerCase() &&
       request.clientSeed === g.commitment &&
       request.fulfilled &&
       request.delivered &&

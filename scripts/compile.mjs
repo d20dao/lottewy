@@ -21,6 +21,9 @@ export function compile(extra = {}, evmVersion = "cancun") {
       "LottewyConsumer.sol": {
         content: readFileSync("contracts/LottewyConsumer.sol", "utf8"),
       },
+      "LottewyConsumerV2.sol": {
+        content: readFileSync("contracts/LottewyConsumerV2.sol", "utf8"),
+      },
       ...extra,
     },
     settings: {
@@ -28,7 +31,12 @@ export function compile(extra = {}, evmVersion = "cancun") {
       optimizer: { enabled: true, runs: 200 },
       outputSelection: {
         "*": {
-          "*": ["abi", "evm.bytecode.object", "evm.deployedBytecode.object"],
+          "*": [
+            "abi",
+            "evm.bytecode.object",
+            "evm.deployedBytecode.object",
+            "storageLayout",
+          ],
         },
       },
     },
