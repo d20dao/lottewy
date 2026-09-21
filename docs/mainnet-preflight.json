@@ -1,0 +1,67 @@
+{
+  "checkedAt": "2026-09-21T16:30:34.996Z",
+  "readOnly": true,
+  "deployed": false,
+  "chainId": 5042,
+  "rpcUrl": "https://rpc.blockdaemon.mainnet.arc.io",
+  "finalizedBlock": "22036000",
+  "wallets": {
+    "admin": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",
+    "seller": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",
+    "relayer": "0xAf3a40fF429e2976958912a9AB7Dbf2fa7d1E043",
+    "adminNativeUsdc": "4.435886177999812234",
+    "relayerNativeUsdc": "5"
+  },
+  "d20": {
+    "coordinator": "0xd20da057469C45928912d983F45790C41e290571",
+    "registry": "0xd20Da048C1A68fa3Bc0B5f5Bc454D1530062C82D",
+    "coordinatorImplementation": "0xd20da0DADa4352A1a9722be43a2D85923443458c",
+    "coordinatorImplementationCodeHash": "0x8c592609fcb15bc512a91a5cdf6b1ddbe994f3a8b30793fc3967a19b69c1cd0d",
+    "epochImplementation": "0xd20dA048C969e5aDcC703Dfdf8220cc9dCB2f865",
+    "epochImplementationCodeHash": "0xd41d69a60a991c0384e5ecb959422a5e8964dbfce80b6aeddc95a975b392430f",
+    "codePinsVerified": true,
+    "quotedFeeUsdc": "0.0351",
+    "callbackGas": 150000
+  },
+  "gateway": {
+    "url": "https://gateway-api.circle.com",
+    "networks": [
+      {
+        "network": "eip155:5042",
+        "verifyingContract": "0x77777777dcc4d5a8b6e418fd04d8997ef11000ee",
+        "asset": "0x3600000000000000000000000000000000000000"
+      },
+      {
+        "network": "eip155:8453",
+        "verifyingContract": "0x77777777dcc4d5a8b6e418fd04d8997ef11000ee",
+        "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+      },
+      {
+        "network": "eip155:1",
+        "verifyingContract": "0x77777777dcc4d5a8b6e418fd04d8997ef11000ee",
+        "asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      }
+    ]
+  },
+  "contract": {
+    "name": "LottewyConsumerV2",
+    "compiler": "0.8.28",
+    "implementationCreationGas": "1973675",
+    "implementationEstimatedGasCostUsdc": "0.041004567030645075",
+    "proxyAddress": null,
+    "implementationAddress": null,
+    "owner": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",
+    "relayer": "0xAf3a40fF429e2976958912a9AB7Dbf2fa7d1E043"
+  },
+  "publication": {
+    "approved": false,
+    "supportEmail": null,
+    "priceUsdc": null
+  },
+  "notes": [
+    "No transaction signed or broadcast. Gas estimate is not a fee guarantee.",
+    "Proxy initialization and relayer authorization require later approved deployment.",
+    "Existing runtime remains testnet-only; a reviewed mainnet release profile must be generated after the new deployment addresses and code hashes exist.",
+    "Do not import testnet payment authorizations or testnet DB into mainnet."
+  ]
+}

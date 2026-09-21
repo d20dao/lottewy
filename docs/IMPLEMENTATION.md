@@ -1,5 +1,23 @@
 # Lottewy V2 implementation
 
+## Mainnet preparation: no deployment authorization
+
+`scripts/mainnet-preflight.mjs` is read-only and rejects all CLI flags. It reads `DEPLOYER_KEY` locally, derives only the public address, verifies the same funded relayer, checks Arc Mainnet chain ID 5042 and both D20 implementation slots/code hashes, reads native balances and a callback-fee quote, checks Gateway mainnet payment-network support, compiles V2 and estimates implementation creation gas. It never creates a wallet client, signs a transaction or broadcasts. Its public report is `docs/mainnet-preflight.json`; the constructor/initializer build plan stays in ignored artifacts. Neither is evidence of an actual deployment.
+
+Approved wallet identities for the later deployment are admin/seller `0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B` and relayer `0xAf3a40fF429e2976958912a9AB7Dbf2fa7d1E043`. Funding does not authorize deployment. The user explicitly requires a later go-ahead before any mainnet transaction or Worker publication.
+
+After that go-ahead, the release sequence is:
+
+1. Repeat the read-only preflight, check current gas/fee limits and approved release commits. Confirm the public support email and fixed total API price. The recorded gas estimate covers implementation creation only, not the proxy, relayer authorization or a paid canary.
+2. Deploy V2 implementation with the verified mainnet D20 coordinator; deploy ERC-1967 proxy with owner initialization in its constructor; authorize the same relayer. Journal signed transactions before broadcast and resume the same identities after uncertain responses. Never reuse testnet consumer addresses.
+3. Record actual proxy/implementation addresses, runtime hashes, implementation slot and owner/relayer checks in a new mainnet deployment manifest. Testnet manifests remain separate. No invented future address is a valid deployment pin.
+4. Prepare and test an isolated mainnet runtime/build profile: change `shared/core.ts` chain/coordinator, `shared/chain.ts` RPC/explorer/chain metadata, verifier and Worker deployment imports, wallet network configuration, funding links and network copy. In the separate API, select the same mainnet protocol profile, `https://gateway-api.circle.com`, and explicitly supported mainnet accepts networks. Update OpenAPI/health/docs network labels. Existing source defaults are intentionally still testnet; changing Wrangler RPC alone is insufficient.
+5. Create separate mainnet D1 bindings and apply migrations. Do not copy testnet payment authorizations, raw transactions or nonces into mainnet. Use a fresh mainnet draft-encryption secret while retaining the same relayer signing key. Upload only allowlisted Worker secrets; the deployer key must never enter a Worker or frontend build.
+6. Configure the intended mainnet site/API domains and origin-bound authentication. The API target is `api.lottewy.com`; prevent the existing testnet site's agent viewer from pointing at the mainnet API. A separate hosted testnet API origin must be selected if that viewer is retained. Validate Turnstile and WalletConnect domain/network settings.
+7. Build, run unit/browser/contract checks, perform an unpaid HTTPS 402/OpenAPI/CLI inspection, and only under the later approved mainnet spending cap perform one paid canary. Verify VRF proof and idempotent retry, then check the Circle readiness score.
+
+The API's final testnet request 5264 passed actual Gateway payment and independent proof export after the follow-up review fixes. This does not prove a mainnet runtime deployment works. Keep publication closed until the remaining network-profile wiring, real consumer pins and business configuration are verified.
+
 Direct contract access remains permissionless. The V2 consumer uses a UUPS proxy with a two-step owner role and explicit upgrade authority. Lottewy publication requires signed wallet authentication, ownership checks and JEV review. The interface is English. Turkish Markdown must never enter commits.
 
 This repository does not implement x402 payments, subscriptions, entry payments, prize custody or mainnet operations. The separate agent API can use an explicitly authorized contract relayer; the site only reads its public result records.
