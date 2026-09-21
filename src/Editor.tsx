@@ -23,10 +23,12 @@ import {
 import { api } from "./api";
 import {
   normalize,
+  hash,
   wallet,
   MAX_WEIGHT,
   weightingConflict,
   type Draft,
+  type Giveaway,
 } from "../shared/core";
 import {
   readDraft,
@@ -416,14 +418,33 @@ export default function Editor({
       setPhase("Preparing your signature…");
       writeDraft(user?.address, id, localSnapshot());
       try {
-        const result = await mutate(
-          id ? "edit" : "create",
-          id || creationId,
-          revision,
-          d,
-          setPhase,
-          { turnstileToken: turnstileToken || undefined },
-        );
+        // A lost create response may already have saved this stable ID. Recover
+        // the owner-only record before signing another create or an updated edit.
+        let prior: (Giveaway & { private: { draft: Draft } }) | undefined;
+        if (!id) {
+          setPhase("Checking the previous save…");
+          try {
+            prior = await api(`/giveaways/${creationId}/private`);
+          } catch (error) {
+            if ((error as Error & { status?: number }).status !== 404)
+              throw error;
+          }
+        }
+        const unchanged = prior && hash(prior.private.draft) === hash(d);
+        if (prior && !unchanged && prior.status !== "draft")
+          throw new Error(
+            "The previous save succeeded and this giveaway is now locked. These local edits are preserved. Open the saved giveaway from My giveaways.",
+          );
+        const result = unchanged
+          ? prior
+          : await mutate(
+              id || prior ? "edit" : "create",
+              id || creationId,
+              prior?.revision ?? revision,
+              d,
+              setPhase,
+              { turnstileToken: turnstileToken || undefined },
+            );
         saved.current = true;
         removeDraft(user?.address, id);
         notify("Signed revision saved.");

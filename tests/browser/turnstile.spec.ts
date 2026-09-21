@@ -78,6 +78,9 @@ test("content rejection turns save into an enabled edit action, then restores ve
   );
   await expect(save).toBeEnabled();
   await save.click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).saveCalls.length))
+    .toBe(2);
   expect(await page.evaluate(() => (window as any).saveCalls[1][3].rules)).toBe(
     "Free entry. Every participant has an equal chance.",
   );

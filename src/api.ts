@@ -42,7 +42,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
   if (!res.ok)
     throw Object.assign(
       new Error(body.error || "The request could not be completed"),
-      { code: body.code },
+      { code: body.code, status: res.status },
     );
   return body;
 }

@@ -28,10 +28,45 @@ test("new giveaway retries and page reload preserve one logical giveaway ID", as
   await page
     .getByRole("button", { name: "Sign and save", exact: true })
     .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.length))
+    .toBe(2);
   expect(await page.evaluate(() => (window as any).calls[1][1])).toBe(id);
   await page.reload();
   await page
     .getByRole("button", { name: "Sign and save", exact: true })
     .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.length))
+    .toBe(1);
   expect(await page.evaluate(() => (window as any).calls[0][1])).toBe(id);
+  await expect(page.locator(".save-error")).toContainText("Connection lost");
+  const acceptedDraft = await page.evaluate(() => (window as any).calls[0][3]);
+  await page.route(`**/api/giveaways/${id}/private`, (route) =>
+    route.fulfill({
+      json: {
+        id,
+        slug: id,
+        revision: 1,
+        status: "draft",
+        private: { draft: acceptedDraft },
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Back to editing", exact: true })
+    .click();
+  await page
+    .getByLabel("Giveaway title", { exact: true })
+    .fill("Edited after accepted response was lost");
+  await page.getByRole("button", { name: "Review your giveaway" }).click();
+  await page
+    .getByRole("button", { name: "Sign and save", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.length))
+    .toBe(2);
+  expect(
+    await page.evaluate(() => (window as any).calls[1].slice(0, 3)),
+  ).toEqual(["edit", id, 1]);
 });
