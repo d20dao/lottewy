@@ -49,6 +49,7 @@ import {
 } from "./abuse";
 export type Env = ReviewEnv &
   DiscordEnv & {
+    DISCORD_SETUP_ORIGIN?: string;
     DB: D1Database;
     ASSETS: Fetcher;
     APP_ORIGIN: string;
@@ -229,6 +230,10 @@ export default {
   ): Promise<Response> {
     const url = new URL(req.url),
       path = url.pathname;
+    if (url.hostname === "www.lottewy.com") {
+      url.hostname = "lottewy.com";
+      return Response.redirect(url.toString(), 308);
+    }
     if (path === "/api/discord/interactions")
       return discordInteraction(req, env, ctx);
     if (!path.startsWith("/api/")) {
@@ -317,7 +322,7 @@ export default {
             !!env.DISCORD_BOT_TOKEN,
           discordSetupOrigin:
             env.MODE === "development"
-              ? "https://testnet.lottewy.com"
+              ? env.DISCORD_SETUP_ORIGIN || "https://testnet.lottewy.com"
               : env.APP_ORIGIN,
           discordInstallUrl: env.DISCORD_APP_ID
             ? `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_APP_ID}&scope=bot%20applications.commands&permissions=84992`

@@ -1,10 +1,10 @@
 {
-  "checkedAt": "2026-09-21T16:30:34.996Z",
+  "checkedAt": "2026-09-21T21:17:06.215Z",
   "readOnly": true,
   "deployed": false,
   "chainId": 5042,
   "rpcUrl": "https://rpc.blockdaemon.mainnet.arc.io",
-  "finalizedBlock": "22036000",
+  "finalizedBlock": "22069862",
   "wallets": {
     "admin": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",
     "seller": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",
@@ -47,7 +47,7 @@
     "name": "LottewyConsumerV2",
     "compiler": "0.8.28",
     "implementationCreationGas": "1973675",
-    "implementationEstimatedGasCostUsdc": "0.041004567030645075",
+    "implementationEstimatedGasCostUsdc": "0.044023303162223",
     "proxyAddress": null,
     "implementationAddress": null,
     "owner": "0x7ad78fc8097DFEA5c12DBb503D6EB6E60f34B40B",

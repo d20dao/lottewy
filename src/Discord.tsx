@@ -67,14 +67,15 @@ function savedChallenge(
   }
 }
 function DiscordEnvironmentGate({ origin }: { origin: string }) {
+  const label = origin === "https://lottewy.com" ? "Lottewy" : "testnet";
   return (
-    <Empty title="Discord setup is available on testnet.">
+    <Empty title={`Discord setup is available on ${label}.`}>
       <p>
-        Continue on testnet to connect your server and run Discord giveaways.
-        You’ll sign in again on testnet.
+        Continue on {label} to connect your server and run Discord giveaways.
+        You’ll sign in again there.
       </p>
       <a className="button lime" href={origin + "/create?mode=discord"}>
-        Continue on testnet <ArrowRight size={16} />
+        Continue on {label} <ArrowRight size={16} />
       </a>
     </Empty>
   );

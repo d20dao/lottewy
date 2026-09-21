@@ -1,7 +1,7 @@
 import { createPublicClient, http, keccak256, type Address } from "viem";
 import { assert, CHAIN_ID, COORDINATOR } from "../shared/core";
 import { arc, consumerAbi, coordinatorAbi } from "../shared/chain";
-import deployment from "../docs/arc-testnet.json";
+import { networkDeployment as deployment } from "../shared/network";
 import type { Env } from "./index";
 const rpc = (env: Env) =>
   createPublicClient({
@@ -25,12 +25,12 @@ export async function trustedClient(env: Env) {
 async function validateClient(env: Env) {
   assert(
     /^0x[\da-fA-F]{40}$/.test(env.CONSUMER_ADDRESS) && env.CONSUMER_CODE_HASH,
-    "The Lottewy testnet consumer is not configured",
+    "The Lottewy consumer is not configured",
   );
   const client = rpc(env);
   assert(
     (await client.getChainId()) === CHAIN_ID,
-    "Only Arc Testnet is supported",
+    "The RPC network does not match this deployment",
   );
   const address = env.CONSUMER_ADDRESS as Address;
   const [consumerCode, implementationCode, coordinator, registryCode] =

@@ -20,16 +20,16 @@
       "/demo",
       "/demo/*",
       "/discord",
-      "/discord/*",
-    ],
+      "/discord/*"
+    ]
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "lottewy-v2",
       "database_id": "00000000-0000-0000-0000-000000000002",
-      "migrations_dir": "migrations",
-    },
+      "migrations_dir": "migrations"
+    }
   ],
   "vars": {
     "APP_ORIGIN": "http://127.0.0.1:5173",
@@ -43,9 +43,12 @@
     "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
     "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
     "AGENT_API_ORIGIN": "https://api.lottewy.com",
+    "DISCORD_SETUP_ORIGIN": "https://lottewy.com"
   },
   "triggers": {
-    "crons": ["* * * * *"],
+    "crons": [
+      "* * * * *"
+    ]
   },
   "env": {
     "testnet": {
@@ -56,8 +59,8 @@
       "routes": [
         {
           "pattern": "testnet.lottewy.com",
-          "custom_domain": true,
-        },
+          "custom_domain": true
+        }
       ],
       "vars": {
         "APP_ORIGIN": "https://testnet.lottewy.com",
@@ -71,18 +74,74 @@
         "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
         "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
         "AGENT_API_ORIGIN": "https://api.lottewy.com",
+        "DISCORD_SETUP_ORIGIN": "https://testnet.lottewy.com"
       },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "lottewy-testnet-v2",
           "database_id": "96365b52-0111-45ea-b0a3-0b13a6cff5c4",
-          "migrations_dir": "migrations",
-        },
+          "migrations_dir": "migrations"
+        }
       ],
       "triggers": {
-        "crons": ["* * * * *"],
+        "crons": [
+          "* * * * *"
+        ]
       },
+      "define": {
+        "__LOTTEWY_MAINNET__": "false"
+      }
     },
+    "mainnet": {
+      "name": "lottewy-mainnet",
+      "account_id": "d9fa81565ed7a49a6076dba363d09f10",
+      "workers_dev": false,
+      "preview_urls": false,
+      "define": {
+        "__LOTTEWY_MAINNET__": "true"
+      },
+      "routes": [
+        {
+          "pattern": "lottewy.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "www.lottewy.com",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://lottewy.com",
+        "MODE": "production",
+        "JEV_MODE": "live",
+        "JEV_MODEL": "jev-1.13.0",
+        "RPC_URL": "https://rpc.blockdaemon.mainnet.arc.io",
+        "ADMIN_ADDRESSES": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+        "CONSUMER_ADDRESS": "0x70824f30bd7a3d3994a5579ad5752d9f0f4a557e",
+        "CONSUMER_CODE_HASH": "0x752a0da23ba14c1b45e3f6a8b224df28db6fec0631818838fbdbd965897b3463",
+        "CONSUMER_IMPLEMENTATION_ADDRESS": "0x3200383f656abf2d38d83869ab4fa371f6caa09c",
+        "CONSUMER_IMPLEMENTATION_CODE_HASH": "0x4727a28b1a07a89beefbada197e1e9b677d641ca632c5fc58c4ca80376fc5ac6",
+        "AGENT_API_ORIGIN": "https://api.lottewy.com",
+        "DISCORD_SETUP_ORIGIN": "https://lottewy.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lottewy-mainnet",
+          "database_id": "45a2a0d1-9e80-4b30-a097-23177453db43",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "triggers": {
+        "crons": [
+          "* * * * *"
+        ]
+      }
+    }
   },
+  "account_id": "d9fa81565ed7a49a6076dba363d09f10",
+  "define": {
+    "__LOTTEWY_MAINNET__": "false"
+  }
 }

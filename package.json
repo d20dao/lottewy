@@ -11,7 +11,9 @@
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply DB --local",
     "contracts:compile": "node scripts/compile.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:mainnet": "node scripts/build-mainnet.mjs",
+    "deploy:mainnet": "npm run build:mainnet && wrangler deploy --env mainnet"
   },
   "dependencies": {
     "@2toad/profanity": "3.3.0",
