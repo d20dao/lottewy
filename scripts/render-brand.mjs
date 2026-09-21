@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { buildFavicon } from "./build-favicon.mjs";
 const browser = await chromium.launch({ channel: "msedge" });
 try {
   const page = await browser.newPage({ deviceScaleFactor: 1 });
@@ -24,17 +25,7 @@ try {
       size,
       size,
     );
-  const png = readFileSync("public/brand/favicon-32.png"),
-    header = Buffer.alloc(22);
-  header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(1, 4);
-  header[6] = 32;
-  header[7] = 32;
-  header.writeUInt16LE(1, 10);
-  header.writeUInt16LE(32, 12);
-  header.writeUInt32LE(png.length, 14);
-  header.writeUInt32LE(22, 18);
-  writeFileSync("public/favicon.ico", Buffer.concat([header, png]));
+  buildFavicon();
   console.log(
     "Rendered OG 1200×630, favicon 16/32, Apple touch 180 and favicon.ico from the SVG brand assets.",
   );
