@@ -12,7 +12,7 @@ Lottewy selects winners and ordered alternates. It does not hold giveaway prizes
 - [Explorer](https://lottewy.com/explorer): Giveaways whose organizers explicitly opted into public listing.
 - [Support](mailto:hello@lottewy.com): Service questions and payment recovery.
 
-Website draws have no Lottewy platform fee. The organizer pays Arc gas in native USDC and the applicable D20DAO randomness service fee. This differs from the agent API's fixed price, which includes one draw and relayer execution. Mainnet transactions use real funds.
+Website draws have no Lottewy platform fee. The organizer pays Arc gas in native USDC and the applicable D20DAO randomness service fee. The agent API quotes each draft in USDC for the D20DAO fee plus estimated execution gas, with zero platform markup. Mainnet transactions use real funds.
 
 Selection uses D20DAO VRF randomness and deterministic replay. Equal chances are the default; manually supplied lists can use disclosed integer weights. Selection is without replacement. Result animations reveal an existing result and do not change it. A completed giveaway's verification view and proof download expose the public manifest, commitments, selection order, VRF evidence, and transaction references. Independent verification checks the VRF proof and chain bindings; epoch source attestations rely on coordinator verification.
 
@@ -28,11 +28,13 @@ The entry deadline fixes the roster. The organizer manually starts the draw afte
 
 ## Agent API discovery
 
-- [OpenAPI specification](https://api.lottewy.com/openapi.json): Authoritative request schemas, current fixed price, response codes, and endpoint definitions.
+- [OpenAPI specification](https://api.lottewy.com/openapi.json): Authoritative request schemas, pricing behavior, response codes, and endpoint definitions.
 - [API guide](https://api.lottewy.com/docs): Payment workflow, privacy, and recovery instructions.
 - [API readiness](https://api.lottewy.com/health): Deployment readiness, execution chain, and consumer configuration.
 
 API availability and accepted payment networks must be checked at runtime. Fetch the current specification and readiness response before preparing a paid operation. Inspect the actual HTTP 402 payment requirements for the accepted network, asset, amount, and payment scheme. Do not infer API readiness or accepted payment networks from the website's network. Do not send payment when discovery is unavailable or the reported deployment does not match the intended network.
+
+OpenAPI pricing and a bare HTTP 402 response provide a reference estimate. The exact payable quote comes from the prepared draft's price.amount and the HTTP 402 requirements for that draftToken. Preparation returns the serviceFee, gasBudget, zero platformFee, and a five-minute quote expiry. The encrypted token binds the price and execution budget; inspect the returned fields and expiry before authorizing payment.
 
 ## Agent draw workflow
 
@@ -42,5 +44,7 @@ API availability and accepted payment networks must be checked at runtime. Fetch
 4. Download the public proof from GET /v1/giveaways/{id}/proof after completion and verify the recorded selection. Use returned links for the public result and proof.
 
 Reuse the same draftToken for retries after a lost response. Do not prepare a replacement draw or authorize another payment to resolve an uncertain operation. Follow the original status URL and machine-readable recovery condition. Pending reconciliation, manual review, or refund_due requires reconciliation rather than a new draw. A failed submission does not imply an automatic completed refund.
+
+Execution costs are rechecked before payment capture. QUOTE_CHANGED means no payment was captured for that attempt: an unpaid draft may be prepared again for a fresh quote. This does not permit replacing an existing paid or uncertain operation; retain its original token and follow its status instead of authorizing another payment.
 
 Keep draftToken, privateArchive, raw participant data, salts, and payment authorizations private. The API returns raw entries and salts to the creator without persisting that private list; it stores public masked manifests, payment records, and transaction state. API draws use an authorized service relayer and an upgradeable consumer contract.
