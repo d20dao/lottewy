@@ -35,7 +35,7 @@ export default memo(function PublicAppearance({
   const total = useMemo(() => weights?.reduce((a, b) => a + b, 0), [weights]);
   const chance = (value: number) =>
     !Number.isFinite(total) || !value
-      ? "—"
+      ? "Not available"
       : (value / total!) * 100 < 0.001
         ? "<0.001%"
         : `${((value / total!) * 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;

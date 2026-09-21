@@ -127,7 +127,7 @@ test("unlisted and hidden giveaways stay noindex; listed pages use their own can
       }),
     );
     await page.goto("/g/polling-test");
-    await expect(page).toHaveTitle(`${record.manifest.title} — Lottewy`);
+    await expect(page).toHaveTitle(`${record.manifest.title} | Lottewy`);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
       visibility ? "index,follow,max-image-preview:large" : "noindex,nofollow",

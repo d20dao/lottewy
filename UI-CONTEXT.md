@@ -14,6 +14,8 @@ Unpublished drafts are backed up per wallet and giveaway in the current tab's se
 
 Brand assets live in `public/brand`: an outlined wordmark and geometric L with a detached lime selection tile, plus favicon and OG variants. No external font is required to render the SVG assets.
 
+Use the official Arc SVG without recoloring, filters or distortion. Its displayed height is at least 50 px, surrounded by at least 18 px clear space at that size. Infrastructure attribution links to the official Arc site; the existing D20DAO icon identifies the randomness provider. Product marketing is network-neutral, while wallet and transaction labels use the actual configured chain. Production has no synthetic demo route. Public metadata and social previews are generated before JavaScript; private pages and test deployments are noindex.
+
 State ownership: field editing stays in Editor; expensive normalization and selection are memoized. Polls do not replace unchanged public data. Private editor data is cleared on account changes. Demo computation is separate from live requests. Animations reveal fixed results and respect reduced motion.
 
 Slot reel, wheel, name scramble, countdown, balloon pop and scratch are presentations of an already-recorded result. They never choose winners. Use bounded animation DOM, interruptible timers, keyboard alternatives, an explicit skip action and immediate reveal for reduced-motion users. The wheel is decorative, not a probability chart.

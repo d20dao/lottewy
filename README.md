@@ -39,6 +39,10 @@ The checked Arc testnet consumer address and runtime hash are already configured
 
 ## Checks
 
+Public marketing metadata describes the Arc-based product without development or demo claims. Shared metadata renders into the initial Worker HTML response, including page-specific social previews for visible listed giveaways. Workspace, unlisted, hidden and agent pages stay noindex; testnet builds also disable indexing and emit an empty sitemap. The synthetic `/demo` route is available only through the Vite development app and returns 404 in production. Runtime wallet/transaction network labels still reflect the configured chain.
+
+Arc attribution uses the original black SVG from the official Circle brand kit, at 50 px height with 18 px clear space. Asset origin and checksum are recorded in `docs/brand-assets.json`. Lottewy keeps its own identity; Arc and D20DAO links describe infrastructure and randomness roles and do not claim a partnership or endorsement. General brand-use terms remain applicable to publication.
+
 ```sh
 npm test
 npm run contracts:compile

@@ -1,0 +1,19 @@
+{
+  "arc": {
+    "guidelines": "https://www.arc.io/brand-guidelines-and-partner-toolkit",
+    "brandKit": "https://www.circle.com/pressroom#brandkit",
+    "archive": "https://6778953.fs1.hubspotusercontent-na1.net/hubfs/6778953/Brand/Arc/Arc_Logos.zip",
+    "archiveEntry": "Arc_Logos/Full Logo/SVG/Arc_Logo_Black.svg",
+    "localPath": "public/brand/arc-logo-black.svg",
+    "sha256Lf": "bc395695259108ca976540ab2344be980d8fa23475d17d3117903e6850feced1",
+    "minimumHeightPx": 50,
+    "clearSpacePx": 18,
+    "usage": "Descriptive infrastructure attribution. Original proportions, orientation and colors; no partnership or endorsement claim."
+  },
+  "d20dao": {
+    "website": "https://d20dao.org",
+    "assetSource": "https://d20dao.org/icon.svg",
+    "localPath": "public/d20dao.svg",
+    "usage": "Randomness provider attribution."
+  }
+}

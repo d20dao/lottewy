@@ -57,7 +57,13 @@ import { formatEther, type Address } from "viem";
 import QRCode from "qrcode";
 import { api, signedAction } from "./api";
 import { useWalletSession } from "./WalletSession";
-import { consumerAbi, coordinatorAbi } from "../shared/chain";
+import { arc, consumerAbi, coordinatorAbi } from "../shared/chain";
+import {
+  routeSeo,
+  isPublicOrigin,
+  SITE_ORIGIN,
+  websiteData,
+} from "../shared/seo";
 import {
   CHAIN_ID,
   WEIGHTED_ALGORITHM,
@@ -168,6 +174,8 @@ function pageMetadata(
   indexable: boolean,
   path?: string,
 ) {
+  const origin = import.meta.env.VITE_PUBLIC_ORIGIN || SITE_ORIGIN;
+  indexable = indexable && isPublicOrigin(origin);
   document.title = title;
   const setMeta = (key: string, value: string, property = false) => {
     const attribute = property ? "property" : "name";
@@ -195,9 +203,17 @@ function pageMetadata(
   if (indexable && path) {
     const canonical = document.createElement("link");
     canonical.rel = "canonical";
-    canonical.href = `${import.meta.env.VITE_PUBLIC_ORIGIN || "https://lottewy.com"}${path}`;
+    canonical.href = `${origin}${path}`;
     document.head.appendChild(canonical);
     setMeta("og:url", canonical.href, true);
+  }
+  document.getElementById("site-schema")?.remove();
+  if (indexable && path === "/") {
+    const schema = document.createElement("script");
+    schema.id = "site-schema";
+    schema.type = "application/ld+json";
+    schema.textContent = JSON.stringify(websiteData(origin));
+    document.head.appendChild(schema);
   }
 }
 function Footer() {
@@ -222,9 +238,13 @@ function Footer() {
       >
         <img src="/d20dao.svg" width="24" height="24" alt="" />
         <span>
-          Powered by <strong>D20DAO</strong>
+          Randomness by <strong>D20DAO</strong>
         </span>
       </a>
+      <p className="footer-trademark">
+        Arc™ is a trademark of Circle Internet Group, Inc. and/or its
+        affiliates.
+      </p>
     </footer>
   );
 }
@@ -248,28 +268,37 @@ function Landing() {
             Share the proof.
           </h1>
           <p className="hero-description">
-            Build your list. Pick your winners. <br />
-            Let everyone verify the result on{" "}
-            <img
-              className="hero-arc-logo"
-              src="/Arc_Logo_YellowGradient.png"
-              alt="Arc"
-              width="82"
-              height="28"
-            />
+            Verifiable giveaways for Discord servers and Web3 communities.
+            <span className="hero-network">
+              Built on{" "}
+              <a
+                className="hero-arc-link"
+                href="https://www.arc.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Built on Arc Network, visit the official website"
+              >
+                <img
+                  className="hero-arc-logo"
+                  src="/brand/arc-logo-black.svg"
+                  alt="Arc Network™"
+                  width="146"
+                  height="50"
+                />
+              </a>
+            </span>
           </p>
           <div className="actions">
             <a className="button primary" href="/create">
               Create a giveaway <ArrowRight size={19} />
             </a>
-            <a className="button secondary" href="/demo">
-              Explore the demo <ArrowRight size={18} />
+            <a className="button secondary" href="/explorer">
+              Explore giveaways <ArrowRight size={18} />
             </a>
           </div>
           <p className="hero-fees">
-            <strong>No Lottewy platform fee.</strong> On Arc Testnet, your
-            wallet’s native USDC covers the D20DAO randomness fee and network
-            gas. Review the quote before starting.
+            <strong>Pay in native USDC.</strong> Review the D20DAO randomness
+            fee and estimated network gas before starting your draw.
           </p>
         </div>
         <div className="hero-art">
@@ -315,8 +344,8 @@ function Landing() {
           <FileText />
           <h2>Build your list</h2>
           <p>
-            One entry per line. Add names, emails or wallet addresses, then set
-            the rules.
+            Paste names, usernames, emails or wallet addresses, or import a CSV.
+            Choose equal chances or public entry weights.
           </p>
         </article>
         <article>
@@ -324,8 +353,16 @@ function Landing() {
           <Trophy />
           <h2>Start the draw</h2>
           <p>
-            Review the USDC fee and gas estimate, then start on Arc Testnet.
-            Your list locks before D20DAO randomness determines the selection.
+            Review the USDC cost and confirm in your wallet. Your list and rules
+            lock before{" "}
+            <a
+              href="https://d20dao.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              D20DAO
+            </a>{" "}
+            randomness determines the selection.
           </p>
         </article>
         <article>
@@ -333,10 +370,74 @@ function Landing() {
           <Globe2 />
           <h2>Share the proof</h2>
           <p>
-            Share your permanent link. Anyone can replay the selection using the
-            same inputs.
+            Share the result page and download its proof. Anyone can reproduce
+            the selection from the public manifest and onchain randomness.
           </p>
         </article>
+      </section>
+      <section
+        className="community-cases"
+        aria-labelledby="community-cases-title"
+      >
+        <div className="community-cases-intro">
+          <p className="eyebrow">MADE FOR YOUR COMMUNITY</p>
+          <h2 id="community-cases-title">
+            Quick to set up.
+            <br />
+            Open to verify.
+          </h2>
+          <p>
+            Start with the people who qualify. Lottewy handles the draw and its
+            proof, while your team stays in charge of eligibility and rewards.
+          </p>
+          <a className="text-button" href="/create">
+            Start with your list <ArrowRight size={17} />
+          </a>
+        </div>
+        <div className="community-case-list">
+          <article className="community-case">
+            <span className="case-audience">Discord servers</span>
+            <div>
+              <h3>A draw after community night</h3>
+              <p>
+                Paste eligible usernames or import a member list, choose your
+                winners and alternates, then post the verifiable result link in
+                your server.
+              </p>
+              <p className="case-example">
+                <span>Example</span> 3 event winners · 2 alternates
+              </p>
+            </div>
+          </article>
+          <article className="community-case">
+            <span className="case-audience">Blockchain communities</span>
+            <div>
+              <h3>Community rewards from a wallet list</h3>
+              <p>
+                Bring the wallet addresses that qualify. Members can inspect the
+                public addresses and commitments, then check the randomness and
+                selected order.
+              </p>
+              <p className="case-example">
+                <span>Example</span> Contributor rewards · wallet addresses
+              </p>
+            </div>
+          </article>
+          <article className="community-case">
+            <span className="case-audience">Web3 campaigns</span>
+            <div>
+              <h3>Different contributions, clear odds</h3>
+              <p>
+                Import entries with a weight column for a weighted draw. Publish
+                the rules and weights so participants can reproduce how each
+                winner was selected.
+              </p>
+              <p className="case-example">
+                <span>Example</span> Campaign entries · CSV with weights
+              </p>
+            </div>
+          </article>
+        </div>
       </section>
       <section className="plain-note">
         <ShieldCheck />
@@ -358,26 +459,20 @@ function Landing() {
 export default function App() {
   const path = location.pathname,
     isLanding = path === "/",
-    isDemo = path.startsWith("/demo");
+    isDemo = import.meta.env.DEV && path === "/demo";
   useEffect(() => {
-    const title = isLanding
-      ? "Lottewy — Verifiable Giveaway Winner Picker on Arc"
-      : path === "/explorer"
-        ? "Explore Public Giveaways — Lottewy"
-        : isDemo
-          ? "Giveaway Demo — Lottewy"
-          : path.startsWith("/g/")
-            ? "Giveaway — Lottewy"
-            : "Organize Your Giveaway — Lottewy";
-    pageMetadata(
-      title,
-      isLanding
-        ? "Pick giveaway winners with D20DAO randomness on Arc Testnet. Import entries, mask names and emails, and share a public proof. No Lottewy platform fee."
-        : path === "/explorer"
-          ? "Explore giveaways listed by their organizers. Inspect public entries, rules and recorded results on Arc Testnet."
-          : "Prepare a giveaway, review its public entries and share a verifiable result with Lottewy.",
-      isLanding || path === "/explorer",
+    // Preserve the Worker's visibility-aware metadata until the public record
+    // loads; do not briefly mark an indexable listed giveaway as noindex.
+    if (path.startsWith("/g/")) return;
+    const meta = routeSeo(
       path,
+      import.meta.env.VITE_PUBLIC_ORIGIN || SITE_ORIGIN,
+    );
+    pageMetadata(
+      isDemo ? "Giveaway Demo | Lottewy" : meta.title,
+      meta.description,
+      meta.indexable,
+      meta.path,
     );
   }, [path, isLanding, isDemo]);
   const { address, chainId } = useAccount();
@@ -543,7 +638,7 @@ export default function App() {
                 <br />
                 Proof stays.
               </p>
-              <small>Testnet development build</small>
+              <small>Verifiable giveaway selection</small>
             </div>
           </aside>
         )}
@@ -907,7 +1002,7 @@ function Listing({
                     </div>
                   </div>
                   <span className="entry-count">
-                    {g.entryCount ?? "—"}{" "}
+                    {g.entryCount ?? "Unknown"}{" "}
                     <span className="mobile-label">entries</span>
                   </span>
                   <Badge status={g.status} />
@@ -1111,10 +1206,10 @@ function GiveawayPage({
     if (!g || isDemo) return;
     pageMetadata(
       g.hidden
-        ? "Giveaway under review — Lottewy"
-        : `${g.manifest.title} — Lottewy`,
+        ? "Giveaway under review | Lottewy"
+        : `${g.manifest.title} | Lottewy`,
       "Inspect this giveaway’s public rules and entries. When the draw is complete, replay its recorded selection and check the onchain evidence.",
-      g.listed === true && !g.hidden,
+      g.listed === true && !g.hidden && !isAgent,
       `/g/${encodeURIComponent(g.slug)}`,
     );
   }, [g?.manifest?.title, g?.listed, g?.hidden, g?.slug, isDemo]);
@@ -1514,7 +1609,7 @@ function GiveawayPage({
           )}
           {owner && !config?.chainReady && g.status === "draft" && (
             <p className="small muted">
-              The Lottewy testnet consumer deployment is not configured yet.
+              The giveaway contract is not configured yet.
             </p>
           )}
           {g.status === "expired" && g.evidence && (
@@ -1649,7 +1744,7 @@ function GiveawayPage({
                 <p key={i} className="small">
                   Submission {attempt.outcome} ·{" "}
                   <a
-                    href={`https://testnet.arcscan.app/tx/${attempt.tx_hash}`}
+                    href={`${arc.blockExplorers.default.url}/tx/${attempt.tx_hash}`}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -1745,7 +1840,9 @@ function GiveawayPage({
           <div>
             <span>Maximum payment</span>
             <strong>
-              {pricing ? `${formatEther(BigInt(pricing.value))} USDC` : "—"}
+              {pricing
+                ? `${formatEther(BigInt(pricing.value))} USDC`
+                : "Calculating…"}
             </strong>
           </div>
           <div>
@@ -1755,7 +1852,7 @@ function GiveawayPage({
         </div>
         <p className="small muted">
           Overpayments are returned to you or become withdrawable credit. Gas is
-          not refunded. You are on Arc Testnet.
+          not refunded. Network: {arc.name}.
         </p>
         <button
           className="button lime full"

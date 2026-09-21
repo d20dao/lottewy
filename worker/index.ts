@@ -25,6 +25,7 @@ import { review, type ReviewEnv } from "./jev";
 import { quote, reconcile } from "./reconcile";
 import { reserveTransaction, recordSubmission } from "./submission";
 import { storeJson, loadJson } from "./storage";
+import { applySeo, routeSeo, isPublicOrigin } from "../shared/seo";
 import {
   AbuseError,
   assertFunded,
@@ -79,6 +80,7 @@ const json = (
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
       ...extra,
     },
   });
@@ -208,29 +210,54 @@ export default {
     const url = new URL(req.url),
       path = url.pathname;
     if (!path.startsWith("/api/")) {
-      if (path.startsWith("/agent/")) {
-        const asset = await env.ASSETS.fetch(req);
-        const response = new Response(asset.body, asset);
-        response.headers.set("X-Robots-Tag", "noindex, nofollow");
-        return response;
-      }
+      const pageRoute =
+        [
+          "/",
+          "/explorer",
+          "/create",
+          "/dashboard",
+          "/history",
+          "/admin",
+          "/demo",
+        ].includes(path) ||
+        ["/g/", "/agent/", "/edit/", "/demo/"].some((prefix) =>
+          path.startsWith(prefix),
+        );
+      if (!pageRoute) return env.ASSETS.fetch(req);
+      const meta = routeSeo(path, env.APP_ORIGIN.replace(/\/$/, ""));
+      let status = 200;
+      if (path === "/demo" || path.startsWith("/demo/")) status = 404;
       if (path.startsWith("/g/")) {
         const slug = path.split("/")[2];
         const row = await env.DB.prepare(
-          "SELECT listed,hidden FROM giveaways WHERE id=? OR slug=?",
+          "SELECT listed,hidden,public_json FROM giveaways WHERE id=? OR slug=?",
         )
           .bind(slug, slug)
-          .first<{ listed: number; hidden: number }>();
-        const asset = await env.ASSETS.fetch(req);
-        const response = new Response(asset.body, asset);
-        response.headers.set(
-          "X-Robots-Tag",
-          row?.listed && !row.hidden ? "index, follow" : "noindex, nofollow",
-        );
-        response.headers.set("Cache-Control", "no-store");
-        return response;
+          .first<{ listed: number; hidden: number; public_json: string }>();
+        if (!row) status = 404;
+        if (row?.listed && !row.hidden) {
+          const g = JSON.parse(row.public_json) as Giveaway;
+          meta.title = `${g.manifest.title} | Lottewy`;
+          meta.description =
+            "Inspect the public rules and entries, replay the recorded selection, and check the onchain evidence for this giveaway.";
+          meta.indexable = isPublicOrigin(meta.origin);
+          meta.path = "/g/" + encodeURIComponent(g.slug);
+        }
       }
-      return env.ASSETS.fetch(req);
+      const asset = await env.ASSETS.fetch(req);
+      const headers = new Headers(asset.headers);
+      headers.set(
+        "X-Robots-Tag",
+        meta.indexable ? "index, follow" : "noindex, nofollow",
+      );
+      headers.set("Cache-Control", "no-store");
+      headers.delete("Content-Length");
+      headers.delete("ETag");
+      const html = await asset.text();
+      return new Response(applySeo(html, meta), {
+        status: asset.status >= 400 ? asset.status : status,
+        headers,
+      });
     }
     try {
       if (req.method !== "GET") {

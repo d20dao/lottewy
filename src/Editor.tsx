@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "./api";
+import { arc } from "../shared/chain";
 import {
   normalize,
   hash,
@@ -1004,8 +1005,8 @@ export default function Editor({
               </div>
             </div>
             <p className="save-balance-note">
-              Your wallet needs native USDC on Arc Testnet to save. Saving
-              checks your balance and does not spend it.
+              Your wallet needs native USDC on {arc.name} to save. Saving checks
+              your balance and does not spend it.
             </p>
             {config && config.jevEnabled !== false && !config.jevConfigured && (
               <p className="field-error">
@@ -1081,27 +1082,31 @@ export default function Editor({
               >
                 <h3 id="funding-heading">Fund the connected wallet</h3>
                 <p>
-                  Choose USDC and Arc Testnet in Circle’s faucet, then enter
-                  your connected wallet address. Once the funds arrive,
+                  {arc.testnet
+                    ? `Choose USDC and ${arc.name} in Circle’s faucet, then enter your connected wallet address.`
+                    : `Send native USDC on ${arc.name} to your connected wallet address.`}{" "}
+                  Once the funds arrive,
                   {config?.turnstileSiteKey ? " verify again and" : ""} select
                   Sign and save. Your entries and review stay here.
                 </p>
                 <div className="actions">
-                  <a
-                    className="text-button"
-                    href="https://faucet.circle.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Get testnet USDC <ExternalLink size={14} />
-                  </a>
+                  {arc.testnet && (
+                    <a
+                      className="text-button"
+                      href="https://faucet.circle.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Get testnet USDC <ExternalLink size={14} />
+                    </a>
+                  )}
                   <a
                     className="text-button"
                     href="https://docs.arc.io/arc/references/connect-to-arc"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Arc Testnet setup <ExternalLink size={14} />
+                    {arc.name} setup <ExternalLink size={14} />
                   </a>
                 </div>
               </section>
@@ -1320,7 +1325,7 @@ function CsvImport({
                 value={weightColumn}
                 onChange={(e) => setWeightColumn(Number(e.target.value))}
               >
-                <option value={-1}>No weights — equal chances</option>
+                <option value={-1}>No weights (equal chances)</option>
                 {Array.from({ length: sheet.width }, (_, i) => (
                   <option key={i} value={i} disabled={i === column}>
                     {header

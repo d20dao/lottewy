@@ -1,8 +1,8 @@
 User-agent: *
 Disallow: /api/
-Disallow: /admin
-Disallow: /dashboard
-Disallow: /create
-Disallow: /edit/
+Allow: /
+Allow: /api/config
+Allow: /api/giveaways
+Disallow: /api/giveaways/*/private
 
 Sitemap: https://lottewy.com/sitemap.xml

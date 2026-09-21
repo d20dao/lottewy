@@ -9,16 +9,25 @@
     "run_worker_first": [
       "/api/*",
       "/g/*",
-      "/agent/*"
-    ]
+      "/agent/*",
+      "/",
+      "/explorer",
+      "/create",
+      "/dashboard",
+      "/history",
+      "/admin",
+      "/edit/*",
+      "/demo",
+      "/demo/*",
+    ],
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "lottewy-v2",
       "database_id": "00000000-0000-0000-0000-000000000002",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
   "vars": {
     "APP_ORIGIN": "http://127.0.0.1:5173",
@@ -31,12 +40,10 @@
     "CONSUMER_CODE_HASH": "0x752a0da23ba14c1b45e3f6a8b224df28db6fec0631818838fbdbd965897b3463",
     "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
     "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
-    "AGENT_API_ORIGIN": "https://api.lottewy.com"
+    "AGENT_API_ORIGIN": "https://api.lottewy.com",
   },
   "triggers": {
-    "crons": [
-      "* * * * *"
-    ]
+    "crons": ["* * * * *"],
   },
   "env": {
     "testnet": {
@@ -47,8 +54,8 @@
       "routes": [
         {
           "pattern": "testnet.lottewy.com",
-          "custom_domain": true
-        }
+          "custom_domain": true,
+        },
       ],
       "vars": {
         "APP_ORIGIN": "https://testnet.lottewy.com",
@@ -61,21 +68,19 @@
         "CONSUMER_CODE_HASH": "0x752a0da23ba14c1b45e3f6a8b224df28db6fec0631818838fbdbd965897b3463",
         "CONSUMER_IMPLEMENTATION_ADDRESS": "0xcff0e2f6514432dd02564fd432d8b4c61d51860f",
         "CONSUMER_IMPLEMENTATION_CODE_HASH": "0xddcf7a4c5845539a92d546c6e7115ddd13e87179c31be11406e9b0a6c401427f",
-        "AGENT_API_ORIGIN": "https://api.lottewy.com"
+        "AGENT_API_ORIGIN": "https://api.lottewy.com",
       },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "lottewy-testnet-v2",
           "database_id": "96365b52-0111-45ea-b0a3-0b13a6cff5c4",
-          "migrations_dir": "migrations"
-        }
+          "migrations_dir": "migrations",
+        },
       ],
       "triggers": {
-        "crons": [
-          "* * * * *"
-        ]
-      }
-    }
-  }
+        "crons": ["* * * * *"],
+      },
+    },
+  },
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { actionData, hash, type Action, type Draft } from "../shared/core";
 import { database } from "./d1";
+import { readFileSync } from "node:fs";
 const abuse = vi.hoisted(() => ({
   assertFunded: vi.fn(),
   checkTurnstile: vi.fn(),
@@ -339,6 +340,72 @@ describe("signed Worker actions / real SQL atomicity", () => {
     expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.text()).toBe("<html></html>");
+  });
+  it("serves page-specific crawler metadata, blocks demo routes, and keeps testnet unindexed", async () => {
+    env.ASSETS = {
+      fetch: async () =>
+        new Response(readFileSync("index.html", "utf8"), {
+          headers: { "Content-Type": "text/html" },
+        }),
+    };
+    env.APP_ORIGIN = "https://lottewy.com";
+    const explore = await worker.fetch(
+      new Request("https://lottewy.com/explorer"),
+      env,
+    );
+    expect(await explore.text()).toContain("Public Giveaway Results | Lottewy");
+    const privatePage = await worker.fetch(
+      new Request("https://lottewy.com/create"),
+      env,
+    );
+    expect(privatePage.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(await privatePage.text()).not.toContain('rel="canonical"');
+    const demo = await worker.fetch(
+      new Request("https://lottewy.com/demo"),
+      env,
+    );
+    expect(demo.status).toBe(404);
+    expect(await demo.text()).toContain("Page Not Found | Lottewy");
+    env.APP_ORIGIN = "https://testnet.lottewy.com";
+    const testnet = await worker.fetch(
+      new Request("https://testnet.lottewy.com/"),
+      env,
+    );
+    expect(testnet.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(await testnet.text()).not.toContain('rel="canonical"');
+  });
+  it("includes only visible listed giveaway titles in the initial social preview", async () => {
+    const id = crypto.randomUUID(),
+      title = 'Community "draw" <preview>';
+    const saved = await call(
+      "/actions",
+      await command("create", id, 0, { ...draft, title, listed: true }),
+    );
+    expect(saved.status).toBe(200);
+    env.APP_ORIGIN = "https://lottewy.com";
+    env.ASSETS = {
+      fetch: async () =>
+        new Response(readFileSync("index.html", "utf8"), {
+          headers: { "Content-Type": "text/html" },
+        }),
+    };
+    const response = await worker.fetch(
+      new Request(`https://lottewy.com/g/${id}`),
+      env,
+    );
+    expect(response.headers.get("X-Robots-Tag")).toBe("index, follow");
+    const html = await response.text();
+    expect(html).toContain(
+      "Community &quot;draw&quot; &lt;preview&gt; | Lottewy",
+    );
+    expect(html).toContain(`href="https://lottewy.com/g/${id}"`);
+    db.sqlite.prepare("UPDATE giveaways SET hidden=1 WHERE id=?").run(id);
+    const hidden = await worker.fetch(
+      new Request(`https://lottewy.com/g/${id}`),
+      env,
+    );
+    expect(hidden.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(await hidden.text()).not.toContain("Community");
   });
   it("requires explicit Explorer listing while preserving public link access and owner access", async () => {
     const id = crypto.randomUUID();

@@ -22,6 +22,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Dialog } from "./primitives";
+import { arc } from "../../shared/chain";
 import {
   traceSelection,
   WEIGHTED_ALGORITHM,
@@ -157,7 +158,7 @@ export default function VerificationDialog({
             {demo
               ? "DEMO"
               : g.evidence
-                ? `Arc Testnet · #${g.evidence.requestId}`
+                ? `${arc.name} · #${g.evidence.requestId}`
                 : "Awaiting a result"}
           </span>
         </div>
@@ -216,7 +217,7 @@ export default function VerificationDialog({
             {g.evidence && (
               <a
                 className="external-link"
-                href={`https://testnet.arcscan.app/tx/${g.evidence.txHash}`}
+                href={`${arc.blockExplorers.default.url}/tx/${g.evidence.txHash}`}
                 target="_blank"
                 rel="noreferrer"
               >

@@ -1,5 +1,6 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown, Wallet } from "lucide-react";
+import { arc } from "../../shared/chain";
 export default function WalletControl() {
   return (
     <ConnectButton.Custom>
@@ -24,7 +25,7 @@ export default function WalletControl() {
               className="button secondary wallet-switch"
               onClick={openChainModal}
             >
-              Switch to Arc Testnet
+              Switch to {arc.name}
             </button>
           );
         if (!connected)
