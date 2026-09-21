@@ -2756,6 +2756,18 @@ footer .footer-provider {
   white-space: nowrap;
   font-size: 12px;
 }
+.footer-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  font-size: 13px;
+}
+.footer-socials a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
 footer .footer-provider > img {
   flex-shrink: 0;
 }

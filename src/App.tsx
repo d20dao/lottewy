@@ -251,6 +251,30 @@ function Footer() {
         Arc™ is a trademark of Circle Internet Group, Inc. and/or its
         affiliates.
       </p>
+      <nav className="footer-socials" aria-label="D20DAO community">
+        <a
+          href="https://x.com/d20dao"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          X
+        </a>
+        <a
+          href="https://discord.gg/7kxhnMQXEb"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Discord
+        </a>
+        <a
+          href="https://github.com/d20dao"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub
+        </a>
+        <a href="mailto:hello@lottewy.com">Contact</a>
+      </nav>
     </footer>
   );
 }

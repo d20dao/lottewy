@@ -1,0 +1,46 @@
+# Lottewy
+
+> Lottewy is a giveaway winner picker with onchain randomness, reproducible selection, and downloadable verification proofs. The website runs on Arc mainnet. A separate agent API offers paid, relayer-executed draws through x402 and Circle Gateway.
+
+Lottewy selects winners and ordered alternates. It does not hold giveaway prizes, distribute prizes, or guarantee prize delivery. Organizers remain responsible for eligibility, rules, and delivery. Cryptographic verification proves the recorded selection, not participant identity or compliance with giveaway rules.
+
+## Website
+
+- [Home](https://lottewy.com/): Product overview and wallet connection.
+- [Create a giveaway](https://lottewy.com/create): Enter a participant list, configure winners and optional alternates, and review the draw before signing.
+- [Dashboard](https://lottewy.com/dashboard): Wallet-authenticated organizer workspace and Discord registrations.
+- [Explorer](https://lottewy.com/explorer): Giveaways whose organizers explicitly opted into public listing.
+- [Support](mailto:hello@lottewy.com): Service questions and payment recovery.
+
+Website draws have no Lottewy platform fee. The organizer pays Arc gas in native USDC and the applicable D20DAO randomness service fee. This differs from the agent API's fixed price, which includes one draw and relayer execution. Mainnet transactions use real funds.
+
+Selection uses D20DAO VRF randomness and deterministic replay. Equal chances are the default; manually supplied lists can use disclosed integer weights. Selection is without replacement. Result animations reveal an existing result and do not change it. A completed giveaway's verification view and proof download expose the public manifest, commitments, selection order, VRF evidence, and transaction references. Independent verification checks the VRF proof and chain bindings; epoch source attestations rely on coordinator verification.
+
+Raw website entries and salts are restricted to the organizer. Public manifests mask non-wallet entries; wallet-address entries remain public. Public weights and commitments are visible. Unlisted giveaways are accessible by share link, so an unlisted page is not an access-controlled private page. Public proof downloads exclude raw private entries and salts.
+
+## Discord registrations
+
+Organizers connect a signed wallet and verify their Discord server using the site's code and the bot's /verify command. Verification requires server ownership, Manage Server, or Administrator permission. Multiple authorized wallets can link the same server; each wallet retains control of its own giveaways and private participant list.
+
+Members enter or withdraw with Join and Leave buttons before the deadline. Discord registrations give equal chances. Optional role requirements are checked at join time: any one selected role qualifies. Roles are not continuously revalidated. One Discord account per entry does not prove one human per entry.
+
+The entry deadline fixes the roster. The organizer manually starts the draw after registration closes; closure alone does not execute an onchain draw. Public website results remain masked, while verified winner identities can be announced in the original Discord server channel.
+
+## Agent API discovery
+
+- [OpenAPI specification](https://api.lottewy.com/openapi.json): Authoritative request schemas, current fixed price, response codes, and endpoint definitions.
+- [API guide](https://api.lottewy.com/docs): Payment workflow, privacy, and recovery instructions.
+- [API readiness](https://api.lottewy.com/health): Deployment readiness, execution chain, and consumer configuration.
+
+API availability and accepted payment networks must be checked at runtime. Fetch the current specification and readiness response before preparing a paid operation. Inspect the actual HTTP 402 payment requirements for the accepted network, asset, amount, and payment scheme. Do not infer API readiness or accepted payment networks from the website's network. Do not send payment when discovery is unavailable or the reported deployment does not match the intended network.
+
+## Agent draw workflow
+
+1. POST /v1/giveaways on the API with owner and draft according to OpenAPI. Preparation takes no payment and does not publish the giveaway. Preserve the returned id, draftToken, privateArchive, and expiry. The owner must be the EVM wallet that will pay.
+2. POST /v1/roll with the exact draftToken. An unpaid request returns HTTP 402 with PAYMENT-REQUIRED. Use an x402 client and a Circle Gateway-funded wallet matching owner, following the returned payment terms. Payment authorization is supplied through PAYMENT-SIGNATURE; use the current API guide for protocol details.
+3. A paid HTTP 200 acknowledges a durable operation, not a completed draw. Poll the returned status URL, corresponding to GET /v1/giveaways/{id}, until completed. Payment settlement and randomness fulfillment are separate stages.
+4. Download the public proof from GET /v1/giveaways/{id}/proof after completion and verify the recorded selection. Use returned links for the public result and proof.
+
+Reuse the same draftToken for retries after a lost response. Do not prepare a replacement draw or authorize another payment to resolve an uncertain operation. Follow the original status URL and machine-readable recovery condition. Pending reconciliation, manual review, or refund_due requires reconciliation rather than a new draw. A failed submission does not imply an automatic completed refund.
+
+Keep draftToken, privateArchive, raw participant data, salts, and payment authorizations private. The API returns raw entries and salts to the creator without persisting that private list; it stores public masked manifests, payment records, and transaction state. API draws use an authorized service relayer and an upgradeable consumer contract.
