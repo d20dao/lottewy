@@ -63,7 +63,21 @@ The active V2 deployment is recorded in `docs/lottewy-testnet.json`. Synthetic r
 
 The `testnet` Wrangler environment targets `testnet.lottewy.com`, a separate remote D1 database and Arc Testnet. It uses production authentication and anti-bot behavior. The root environment remains local development. Do not deploy the root environment.
 
-Apply remote migrations with `wrangler d1 migrations apply DB --env testnet --remote`. The V2 binding uses a separate `lottewy-testnet-v2` database. Store only `JEV_API_KEY`, `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
+After release approval, apply remote migrations with `wrangler d1 migrations apply DB --env testnet --remote`. The V2 binding uses a separate `lottewy-testnet-v2` database. Upload an explicit allowlist of `JEV_API_KEY`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` and the three Discord settings below with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
+
+## Discord registration (prepared locally)
+
+The site supports collecting equal-chance entries with Discord Join and Leave buttons, then freezing the list for the organizer's usual wallet-driven draw. Creating a registration does not submit an onchain transaction. The closing time is enforced by the database even if the scheduled finalizer runs later. Discord IDs and display names stay in private entry storage; public manifests contain commitments and masked labels. One account per entry does not establish one human per entry.
+
+Set `DISCORD_APP_ID`, `DISCORD_APP_PUBLIC_KEY`, and `DISCORD_BOT_TOKEN` as Worker secrets. Never expose the bot token through Vite or commit it. Apply migrations 0009 and 0010 before enabling the feature. Configure the application's HTTPS interaction URL as `/api/discord/interactions`. Requests use Ed25519 verification, timestamp freshness, deduplication and rate limits. No Gateway connection or privileged intents are required.
+
+`node scripts/discord-command.mjs --preview` previews both commands without publishing. `--check` verifies the application identity without mutation. After explicit release approval, `DISCORD_PUBLISH_APPROVED=yes node scripts/discord-command.mjs --publish` upserts `/giveaway` and `/lottewy-verify` individually. Use the equivalent environment-variable syntax for the host shell. Install with bot and applications.commands scopes and permission value 84992 (View Channel, Send Messages, Embed Links, Read Message History). Do not grant Administrator.
+
+An organizer signs in with a funded wallet, creates a ten-minute code and runs `/lottewy-verify code` in the intended channel using a Discord account with Manage Server. Permissions are rechecked before publication. Creation passes the existing content review, Turnstile and signed-action checks. Up to five active registrations per wallet and 10,000 participants per registration are supported. Registration closes between two minutes and thirty days after creation. Winner and alternate counts, rules and the final participant list cannot be edited after publication. Insufficient participation creates no drawable giveaway.
+
+The scheduler closes registrations, snapshots entries and updates announcements. Uncertain message delivery never automatically creates a second announcement: the organizer can link the original message, or a signed Join/Leave interaction can recover its ID. Cancelled registrations remain closed during recovery. Discord delivery failures can delay announcement updates but never extend the entry deadline. `/giveaway id` displays the public result and links to verification; it does not reveal private participant identities.
+
+These changes are not deployed and application commands have not been published. Local automated tests mock Discord; a live identity and end-to-end Discord check remains necessary before release.
 
 ## Remaining mainnet release work
 

@@ -190,6 +190,10 @@ export default function Editor({
     api(`/giveaways/${id}/private`)
       .then((g) => {
         if (!live) return;
+        if (g.registration)
+          throw new Error(
+            "Discord registration is closed. Its participant list and rules cannot be edited. Open the giveaway to start the draw.",
+          );
         if (g.status !== "draft")
           throw new Error(
             "This giveaway is locked. Its entries and rules can no longer be edited.",

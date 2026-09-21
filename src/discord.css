@@ -1,0 +1,260 @@
+.creation-source {
+  display: flex;
+  gap: 24px;
+  margin: 0 0 30px;
+  border-bottom: 1px solid var(--line);
+}
+.creation-source button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  min-height: 48px;
+  padding: 8px 0 12px;
+  font-weight: 600;
+}
+.creation-source button[aria-pressed="true"] {
+  border-bottom-color: #83a749;
+  color: var(--ink);
+}
+.creation-source button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.discord-creator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 44px;
+  align-items: start;
+}
+.discord-channel-setup {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+.discord-channel-setup h2 {
+  font-size: 23px;
+  line-height: 1.3;
+  margin-bottom: 14px;
+}
+.discord-channel-setup > p {
+  line-height: 1.8;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+.discord-channel-setup label,
+.discord-details label,
+.discord-recovery label,
+.discord-verify-instructions label {
+  display: block;
+  font-size: 14px;
+  margin: 20px 0 8px;
+}
+.discord-channel-setup select,
+.discord-details input,
+.discord-details textarea,
+.discord-recovery input {
+  width: 100%;
+  min-width: 0;
+}
+.discord-channel-setup > button {
+  margin-top: 14px;
+}
+.discord-verify-instructions {
+  padding-top: 24px;
+}
+.discord-verify-instructions h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.discord-verify-instructions p {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.discord-code {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.discord-code input {
+  min-width: 0;
+  flex: 1;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.discord-code button {
+  padding-inline: 14px;
+  flex-shrink: 0;
+}
+.discord-flow-note {
+  display: flex;
+  gap: 12px;
+  padding-top: 24px;
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+.discord-flow-note svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.discord-flow-note p {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.discord-details {
+  min-width: 0;
+}
+.discord-details > label:first-child {
+  margin-top: 0;
+}
+.discord-counts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.discord-details label.discord-listing {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  line-height: 1.6;
+  margin: 24px 0 16px;
+}
+.discord-listing input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: #709838;
+}
+.discord-details > .button {
+  margin-top: 24px;
+}
+.discord-review {
+  max-width: 760px;
+}
+.discord-review > .eyebrow {
+  margin-top: 28px;
+}
+.discord-review h2 {
+  font-size: 30px;
+  line-height: 1.3;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.discord-review > p {
+  margin: 12px 0 20px;
+  line-height: 1.8;
+}
+.discord-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  margin: 28px 0 32px;
+  padding: 22px 0;
+  border-block: 1px solid var(--line);
+}
+.discord-summary dt {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.discord-summary dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.discord-review .button.full {
+  margin-top: 20px;
+}
+.discord-campaign-page > h2 {
+  font-size: 22px;
+  margin: 30px 0 12px;
+}
+.discord-campaign-page > p {
+  max-width: 80ch;
+  line-height: 1.8;
+  margin-bottom: 24px;
+  overflow-wrap: anywhere;
+}
+.discord-campaign-page .page-head p {
+  overflow-wrap: anywhere;
+}
+.discord-campaign-page .badge {
+  flex-shrink: 0;
+}
+.discord-recovery {
+  max-width: 700px;
+  margin-top: 36px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+.discord-recovery h2 {
+  font-size: 23px;
+  margin-bottom: 14px;
+}
+.discord-recovery p {
+  line-height: 1.8;
+  color: var(--muted);
+}
+.discord-recovery button {
+  margin-top: 14px;
+}
+.discord-registration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.discord-registration-row > div {
+  min-width: 0;
+}
+.discord-registration-row h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.discord-registration-row p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.discord-registration-row > span {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+@media (max-width: 950px) {
+  .discord-creator-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+  .discord-channel-setup {
+    position: static;
+  }
+}
+@media (max-width: 600px) {
+  .creation-source {
+    gap: 20px;
+  }
+  .creation-source button {
+    font-size: 13px;
+  }
+  .discord-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .discord-campaign-page .page-head {
+    align-items: flex-start;
+  }
+  .discord-registration-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .discord-review h2 {
+    font-size: 25px;
+  }
+}

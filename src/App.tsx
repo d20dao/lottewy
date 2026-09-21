@@ -3,6 +3,11 @@ import Pagination from "./components/Pagination";
 import WalletControl from "./components/WalletControl";
 import { Empty, Dialog } from "./components/primitives";
 import Editor from "./Editor";
+import {
+  DiscordCreator,
+  DiscordCampaignPage,
+  DiscordCampaignList,
+} from "./Discord";
 import SubmissionRecovery from "./SubmissionRecovery";
 import RevealStage, { type RevealMode } from "./components/RevealStage";
 import { proofBundle, serializeProofBundle } from "../shared/proof-bundle";
@@ -488,6 +493,11 @@ export default function App() {
     [toast, setToast] = useState("");
   const [navOpen, setNavOpen] = useState(false),
     [refresh, setRefresh] = useState(0);
+  const [creationSource, setCreationSource] = useState(
+    new URLSearchParams(location.search).get("mode") === "discord"
+      ? "discord"
+      : "list",
+  );
   const navRef = useRef<HTMLElement>(null),
     menuRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -557,13 +567,19 @@ export default function App() {
       checks,
     );
   };
-  const workspace = [
-    "/dashboard",
-    "/create",
-    "/edit",
-    "/history",
-    "/admin",
-  ].some((p) => path.startsWith(p));
+  const workspace =
+    ["/dashboard", "/create", "/edit", "/history", "/admin"].some((p) =>
+      path.startsWith(p),
+    ) || path === "/discord";
+  const discordProps = {
+    user,
+    config,
+    busy,
+    run,
+    mutate,
+    notify: setToast,
+    onLogin: login,
+  };
   return (
     <>
       <a className="skip" href="#main">
@@ -620,6 +636,9 @@ export default function App() {
               <Wallet size={20} />
               Activity history
             </a>
+            <a className={path === "/discord" ? "active" : ""} href="/discord">
+              <Users size={20} /> Discord registrations
+            </a>
             {user?.admin && (
               <a href="/admin">
                 <ShieldCheck size={20} />
@@ -648,8 +667,40 @@ export default function App() {
             isLanding ? "landing" : workspace ? "workspace-main" : "public-main"
           }
         >
+          {path === "/create" && (
+            <div
+              className="creation-source"
+              role="group"
+              aria-label="Entry source"
+            >
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={creationSource === "list"}
+                onClick={() => {
+                  setCreationSource("list");
+                  history.replaceState(null, "", "/create");
+                }}
+              >
+                List or CSV
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={creationSource === "discord"}
+                onClick={() => {
+                  setCreationSource("discord");
+                  history.replaceState(null, "", "/create?mode=discord");
+                }}
+              >
+                Discord registration
+              </button>
+            </div>
+          )}
           {isLanding ? (
             <Landing />
+          ) : path === "/create" && creationSource === "discord" ? (
+            <DiscordCreator {...discordProps} />
           ) : path === "/create" || path.startsWith("/edit/") ? (
             <Editor
               onLogin={login}
@@ -670,6 +721,10 @@ export default function App() {
             />
           ) : path === "/history" ? (
             <History user={user} />
+          ) : path === "/discord" ? (
+            <DiscordCampaignList {...discordProps} />
+          ) : path.startsWith("/discord/") ? (
+            <DiscordCampaignPage {...discordProps} />
           ) : path === "/admin" ? (
             <Admin user={user} run={run} busy={busy} mutate={mutate} />
           ) : isDemo || path.startsWith("/g/") || path.startsWith("/agent/") ? (
@@ -1575,15 +1630,21 @@ function GiveawayPage({
           <h2>
             {g.status === "draft"
               ? owner
-                ? "Your list is ready. Next, the draw."
+                ? g.registration
+                  ? "Registration is closed. Next, the draw."
+                  : "Your list is ready. Next, the draw."
                 : "This giveaway is being prepared."
               : statuses[g.status]}
           </h2>
           <p>
             {g.status === "draft"
               ? owner
-                ? "You can edit the list and rules until the VRF request is submitted."
-                : "The organizer can edit the entries and rules until the draw is submitted."
+                ? g.registration
+                  ? "The participant list and rules are fixed. Review the entries and start the draw when ready."
+                  : "You can edit the list and rules until the VRF request is submitted."
+                : g.registration
+                  ? "The participant list and rules are fixed. The organizer will start the draw."
+                  : "The organizer can edit the entries and rules until the draw is submitted."
               : "The list and rules are locked. An uncertain transaction never opens a second request."}
           </p>
           {liveStatuses.has(g.status) && (
@@ -1595,9 +1656,11 @@ function GiveawayPage({
           )}
           {owner && g.status === "draft" && (
             <div className="actions">
-              <a className="button secondary" href={`/edit/${g.id}`}>
-                Edit list
-              </a>
+              {!g.registration && (
+                <a className="button secondary" href={`/edit/${g.id}`}>
+                  Edit list
+                </a>
+              )}
               <button
                 className="button lime"
                 disabled={busy || !config?.chainReady}
