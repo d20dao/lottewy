@@ -1,6 +1,90 @@
 import { test, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
+test("configured local Worker exposes installation and channel setup on the actual creation route", async ({
+  page,
+  request,
+}) => {
+  const config = await (await request.get("/api/config")).json();
+  test.skip(
+    !config.discordConfigured,
+    "Requires configured local Discord environment",
+  );
+  expect(config.discordInstallUrl).toMatch(
+    /^https:\/\/discord.com\/oauth2\/authorize\?/,
+  );
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      json: {
+        address: "0x0000000000000000000000000000000000000001",
+        admin: false,
+      },
+    }),
+  );
+  await page.route("**/api/discord/links", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.addInitScript(() => {
+    const provider = {
+      isMetaMask: true,
+      request: async ({ method }: { method: string }) => {
+        if (method === "eth_accounts" || method === "eth_requestAccounts")
+          return ["0x0000000000000000000000000000000000000001"];
+        if (method === "eth_chainId") return "0x4cef52";
+        if (method === "eth_getBalance") return "0x0";
+        return null;
+      },
+      on: () => {},
+      removeListener: () => {},
+    };
+    (window as any).ethereum = provider;
+    const announce = () =>
+      window.dispatchEvent(
+        new CustomEvent("eip6963:announceProvider", {
+          detail: {
+            info: {
+              uuid: "a074a261-d873-4022-8d71-e5f0f8c6b8ef",
+              name: "Discord Test Wallet",
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+              rdns: "test.lottewy.discord",
+            },
+            provider,
+          },
+        }),
+      );
+    window.addEventListener("eip6963:requestProvider", announce);
+    announce();
+  });
+  await page.goto("/create?mode=discord");
+  await page
+    .getByRole("button", { name: "Connect wallet", exact: true })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Discord Test Wallet" }).click();
+  await expect(
+    page.getByRole("link", { name: "Add bot to Discord" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Verify a server channel" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Giveaway title")).toBeVisible();
+  await expect(
+    page.getByText("Discord registration is not enabled yet"),
+  ).toHaveCount(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `artifacts/discord-live-config-${width}.png`,
+      fullPage: true,
+    });
+  }
+});
+
 test("Discord registration preserves a failed draft and stable ID, with usable mobile verification and review", async ({
   page,
 }) => {
@@ -9,7 +93,7 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
     "artifacts/discord-editor.html",
     `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body><main style="padding:24px"><div id="root"></div></main><script type="module">
     import React from 'react';import {createRoot} from 'react-dom/client';import {DiscordCreator} from '../src/Discord.tsx';import '../src/styles.css';
-    window.calls=[];createRoot(document.getElementById('root')).render(React.createElement(DiscordCreator,{user:{address:'0x0000000000000000000000000000000000000001'},config:{discordConfigured:true},busy:false,run:f=>f(),notify:()=>{},onLogin:()=>{},mutate:async(...args)=>{window.calls.push(args);throw new Error('Connection lost. Please retry.');}}));
+    window.calls=[];createRoot(document.getElementById('root')).render(React.createElement(DiscordCreator,{user:{address:'0x0000000000000000000000000000000000000001'},config:{discordConfigured:true,discordInstallUrl:'https://discord.com/oauth2/authorize?client_id=123456789012345678'},busy:false,run:f=>f(),notify:()=>{},onLogin:()=>{},mutate:async(...args)=>{window.calls.push(args);throw new Error('Connection lost. Please retry.');}}));
   </script></body></html>`,
   );
   const linkId = "0x" + "ab".repeat(32);
@@ -51,6 +135,9 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
   );
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto("/artifacts/discord-editor.html");
+  await expect(
+    page.getByRole("link", { name: "Add bot to Discord" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Verify another channel" }).click();
   await expect(page.getByLabel("One-time code")).toHaveValue(
     "12345678-abcd-abcd-abcd-123456789012",

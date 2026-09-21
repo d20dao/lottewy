@@ -313,6 +313,9 @@ export default {
             !!env.DISCORD_APP_ID &&
             !!env.DISCORD_APP_PUBLIC_KEY &&
             !!env.DISCORD_BOT_TOKEN,
+          discordInstallUrl: env.DISCORD_APP_ID
+            ? `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_APP_ID}&scope=bot%20applications.commands&permissions=84992`
+            : null,
         });
       if (path === "/api/auth/challenge" && req.method === "POST") {
         const { address } = await body(req);

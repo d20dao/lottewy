@@ -69,6 +69,19 @@
   line-height: 1.3;
   margin-bottom: 14px;
 }
+.discord-install-step {
+  margin: 24px 0 30px;
+}
+.discord-install-step h3,
+.discord-step-heading {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.discord-install-step p {
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
 .discord-channel-setup > p {
   line-height: 1.8;
   font-size: 14px;

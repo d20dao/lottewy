@@ -340,7 +340,28 @@ export function DiscordCreator(props: Props) {
             className="discord-channel-setup"
             aria-labelledby="discord-channel-heading"
           >
-            <h2 id="discord-channel-heading">Choose the server channel</h2>
+            <h2 id="discord-channel-heading">Connect your Discord server</h2>
+            <div className="discord-install-step">
+              <h3>1. Add Lottewy to your server</h3>
+              <p className="small muted">
+                Choose your server on Discord and allow the bot to send messages
+                in your giveaway channel. Already installed? Continue with
+                channel verification below.
+              </p>
+              {config.discordInstallUrl && (
+                <a
+                  className="button secondary"
+                  href={config.discordInstallUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Add bot to Discord <ExternalLink size={16} />
+                </a>
+              )}
+            </div>
+            <h3 className="discord-step-heading">
+              2. Verify your giveaway channel
+            </h3>
             <p className="muted">
               Choose where the bot posts the announcement. Members need access
               to this channel and must meet any role requirement below.
@@ -403,19 +424,11 @@ export function DiscordCreator(props: Props) {
                   {user.address.slice(-4)}. Expires{" "}
                   {challenge ? date(challenge.expires) : ""}.
                 </p>
-                <a
-                  className="text-button"
-                  href={challenge?.installUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Install Lottewy in your server <ExternalLink size={15} />
-                </a>
               </div>
             </Collapsible>
             {form.linkId && (
               <fieldset className="discord-role-filter">
-                <legend>Who can join?</legend>
+                <legend>3. Choose who can join</legend>
                 <p className="small muted">
                   No roles selected: anyone with channel access. Otherwise,
                   members need at least one selected role when joining. Up to 10
@@ -921,7 +934,7 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
   );
 }
 
-export function DiscordCampaignList({ user, onLogin }: Props) {
+export function DiscordCampaignList({ user, onLogin, config }: Props) {
   const [rows, setRows] = useState<Campaign[] | null>(null),
     [rowsOwner, setRowsOwner] = useState(""),
     [error, setError] = useState("");
@@ -975,6 +988,21 @@ export function DiscordCampaignList({ user, onLogin }: Props) {
           <p>
             Verify a server channel to let your community join with a button.
           </p>
+          <div className="actions wrap">
+            {config?.discordInstallUrl && (
+              <a
+                className="button secondary"
+                href={config.discordInstallUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Add bot to Discord <ExternalLink size={16} />
+              </a>
+            )}
+            <a className="button lime" href="/create?mode=discord">
+              Set up a Discord giveaway <ArrowRight size={16} />
+            </a>
+          </div>
         </Empty>
       ) : (
         <div className="discord-registration-list">
