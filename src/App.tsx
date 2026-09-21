@@ -743,6 +743,9 @@ export default function App() {
               user={user}
               login={login}
               refresh={refresh}
+              run={run}
+              mutate={mutate}
+              busy={busy}
             />
           ) : path === "/history" ? (
             <History user={user} />
@@ -907,16 +910,22 @@ function Recovery({
     </section>
   );
 }
-function Listing({
+export function Listing({
   mine,
   user,
   login,
   refresh,
+  run,
+  mutate,
+  busy,
 }: {
   mine: boolean;
   user: any;
   login: () => void;
   refresh: number;
+  run: Common["run"];
+  mutate: Common["mutate"];
+  busy: boolean;
 }) {
   const [items, setItems] = useState<
       | (Pick<
@@ -934,6 +943,13 @@ function Listing({
     [total, setTotal] = useState(0),
     [listLoading, setListLoading] = useState(false);
   const requestVersion = useRef(0);
+  const [moderating, setModerating] = useState<{
+      id: string;
+      revision: number;
+      title: string;
+    } | null>(null),
+    [reviewReason, setReviewReason] = useState(""),
+    [moderationError, setModerationError] = useState("");
   const load = () => {
     const current = ++requestVersion.current;
     setError("");
@@ -1067,30 +1083,55 @@ function Listing({
                 <span />
               </div>
               {filtered.map((g) => (
-                <a className="giveaway-row" key={g.id} href={`/g/${g.slug}`}>
-                  <div className="row-title">
-                    <span className="row-mark">
-                      <FileText />
-                    </span>
-                    <div>
-                      <h2>
-                        {g.hidden ? "Content under review" : g.manifest?.title}
-                      </h2>
-                      <p>
-                        {shorten(g.owner)} · Revision {g.revision}
-                      </p>
+                <div key={g.id}>
+                  <a className="giveaway-row" href={`/g/${g.slug}`}>
+                    <div className="row-title">
+                      <span className="row-mark">
+                        <FileText />
+                      </span>
+                      <div>
+                        <h2>
+                          {g.hidden
+                            ? "Content under review"
+                            : g.manifest?.title}
+                        </h2>
+                        <p>
+                          {shorten(g.owner)} · Revision {g.revision}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <span className="entry-count">
-                    {g.entryCount ?? "Unknown"}{" "}
-                    <span className="mobile-label">entries</span>
-                  </span>
-                  <Badge status={g.status} />
-                  <time>
-                    {new Date(g.created * 1000).toLocaleDateString("en-US")}
-                  </time>
-                  <ArrowRight size={19} />
-                </a>
+                    <span className="entry-count">
+                      {g.entryCount ?? "Unknown"}{" "}
+                      <span className="mobile-label">entries</span>
+                    </span>
+                    <Badge status={g.status} />
+                    <time>
+                      {new Date(g.created * 1000).toLocaleDateString("en-US")}
+                    </time>
+                    <ArrowRight size={19} />
+                  </a>
+                  {user?.admin && !mine && (
+                    <div className="giveaway-admin-action">
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={busy}
+                        aria-label={`Hide ${g.manifest?.title || "giveaway"} from Explorer`}
+                        onClick={() => {
+                          setModerating({
+                            id: g.id,
+                            revision: g.revision,
+                            title: g.manifest?.title || g.id,
+                          });
+                          setReviewReason("");
+                          setModerationError("");
+                        }}
+                      >
+                        <ShieldCheck size={15} /> Hide from Explorer
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ) : (
@@ -1140,6 +1181,55 @@ function Listing({
         <Globe2 size={16} />
         Every record is public. Names and emails are masked on the server.
       </p>
+      <Dialog
+        open={!!moderating && !!user?.admin}
+        close={() => {
+          if (!busy) setModerating(null);
+        }}
+        title="Hide this giveaway?"
+      >
+        <p>{moderating?.title}</p>
+        <p>
+          This removes it only from Explorer. Its direct link, verification and
+          draw remain available. You can restore it from Admin.
+        </p>
+        <label>
+          Review reason
+          <textarea
+            value={reviewReason}
+            minLength={10}
+            maxLength={1000}
+            onChange={(e) => setReviewReason(e.target.value)}
+          />
+        </label>
+        {moderationError && <p role="alert">{moderationError}</p>}
+        <button
+          className="button primary"
+          disabled={busy || reviewReason.trim().length < 10}
+          onClick={() =>
+            run(async () => {
+              if (!moderating || !user?.admin) return;
+              try {
+                await mutate(
+                  "set-explorer-visibility",
+                  moderating.id,
+                  moderating.revision,
+                  {
+                    hidden: true,
+                    reason: reviewReason.trim(),
+                  },
+                );
+                setModerating(null);
+                load();
+              } catch (e) {
+                setModerationError((e as Error).message);
+              }
+            })
+          }
+        >
+          Sign and hide
+        </button>
+      </Dialog>
     </>
   );
 }
@@ -2077,6 +2167,19 @@ export function Admin({ user, run, busy, mutate }: Common) {
                         : `${r.signer} · ${r.target}`}
                 </p>
               </div>
+              {tab === "giveaways" && (
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    setTarget({ ...r, explorerAction: true });
+                    setReason("");
+                  }}
+                >
+                  {r.explorerHidden
+                    ? "Restore to Explorer"
+                    : "Hide from Explorer"}
+                </button>
+              )}
               {tab !== "actions" && (
                 <button
                   className="button secondary"
@@ -2121,20 +2224,24 @@ export function Admin({ user, run, busy, mutate }: Common) {
           onClick={() =>
             run(async () => {
               await mutate(
-                tab === "reports"
-                  ? "resolve-report"
-                  : tab === "members"
-                    ? "suspend"
-                    : "moderate",
+                target.explorerAction
+                  ? "set-explorer-visibility"
+                  : tab === "reports"
+                    ? "resolve-report"
+                    : tab === "members"
+                      ? "suspend"
+                      : "moderate",
                 target.id || target.address,
                 target.revision || 0,
                 {
                   reason,
-                  ...(tab === "members"
-                    ? { suspended: !target.suspended }
-                    : tab === "giveaways"
-                      ? { hidden: !target.hidden }
-                      : {}),
+                  ...(target.explorerAction
+                    ? { hidden: !target.explorerHidden }
+                    : tab === "members"
+                      ? { suspended: !target.suspended }
+                      : tab === "giveaways"
+                        ? { hidden: !target.hidden }
+                        : {}),
                 },
               );
               setTarget(null);

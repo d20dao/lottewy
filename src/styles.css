@@ -2763,6 +2763,11 @@ footer .footer-provider {
   align-items: center;
   font-size: 13px;
 }
+.giveaway-admin-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 12px;
+}
 .footer-socials a {
   min-height: 44px;
   display: inline-flex;

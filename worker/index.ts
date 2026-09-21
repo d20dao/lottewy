@@ -74,6 +74,7 @@ type Row = {
   created: number;
   hidden: number;
   listed: number;
+  explorer_hidden?: number;
 };
 const now = () => Math.floor(Date.now() / 1000);
 async function reviewSettings(env: Env) {
@@ -121,14 +122,26 @@ function publicRow(row: Row, viewer?: string) {
       status: row.status,
       created: g.created,
       hidden: true,
+      explorerHidden: !!row.explorer_hidden,
       commitment: g.commitment,
       evidence: g.evidence,
     };
   if (g.recovery && viewer !== row.owner) {
     const { refundCredit, overpaymentCredit, ...recovery } = g.recovery;
-    return { ...g, recovery, status: row.status, listed: !!row.listed };
+    return {
+      ...g,
+      recovery,
+      status: row.status,
+      listed: !!row.listed,
+      explorerHidden: !!row.explorer_hidden,
+    };
   }
-  return { ...g, status: row.status, listed: !!row.listed };
+  return {
+    ...g,
+    status: row.status,
+    listed: !!row.listed,
+    explorerHidden: !!row.explorer_hidden,
+  };
 }
 async function body(req: Request) {
   assert(
@@ -544,7 +557,8 @@ export default {
         if (mine) assert(user, "Please sign in with your wallet");
         const conditions: string[] = [],
           values: (string | number)[] = [];
-        if (!mine) conditions.push("listed=1 AND hidden=0");
+        if (!mine)
+          conditions.push("listed=1 AND hidden=0 AND explorer_hidden=0");
         if (mine) {
           conditions.push("owner=?");
           values.push(user!.address);
@@ -1083,6 +1097,23 @@ export default {
             "Admin permission and explicit Discord registration confirmation are required",
           );
           result = await registerDiscordCommands(env);
+        } else if (action.actionType === "set-explorer-visibility") {
+          assert(
+            admin &&
+              row &&
+              typeof payload.hidden === "boolean" &&
+              typeof payload.reason === "string" &&
+              payload.reason.trim().length >= 10 &&
+              payload.reason.length <= 1000,
+            "Admin permission, giveaway and review reason are required",
+          );
+          statements.push(
+            env.DB.prepare(
+              "UPDATE giveaways SET explorer_hidden=? WHERE id=?",
+            ).bind(Number(payload.hidden), row.id),
+            guard(env.DB),
+          );
+          result = { ok: true, explorerHidden: payload.hidden };
         } else if (action.actionType === "set-jev") {
           assert(
             admin &&

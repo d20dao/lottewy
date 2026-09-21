@@ -131,6 +131,70 @@ beforeEach(async () => {
   cookie = (await login()).cookie;
 });
 describe("signed Worker actions / real SQL atomicity", () => {
+  it("admin Explorer exclusion leaves the public record and owner draw permissions intact", async () => {
+    const id = crypto.randomUUID(),
+      input = { ...draft, listed: true };
+    expect(
+      (await call("/actions", await command("create", id, 0, input))).status,
+    ).toBe(200);
+    const payload = {
+      hidden: true,
+      reason: "Exclude this giveaway from the showcase.",
+    };
+    expect(
+      (
+        await call(
+          "/actions",
+          await command("set-explorer-visibility", id, 1, payload),
+        )
+      ).status,
+    ).toBe(400);
+    env.ADMIN_ADDRESSES = account.address;
+    expect(
+      (
+        await call(
+          "/actions",
+          await command("set-explorer-visibility", id, 1, payload),
+        )
+      ).status,
+    ).toBe(200);
+    const listing = (await (
+      await call("/giveaways?paged=1&limit=10")
+    ).json()) as any;
+    expect(listing.total).toBe(0);
+    const record = (await (await call("/giveaways/" + id)).json()) as any;
+    expect(record.manifest.title).toBe(input.title);
+    expect(record.hidden).not.toBe(true);
+    expect(
+      (await call("/actions", await command("edit", id, 1, input))).status,
+    ).toBe(200);
+    expect(
+      ((await (await call("/giveaways?paged=1&limit=10")).json()) as any).total,
+    ).toBe(0);
+    const current = (await (await call("/giveaways/" + id)).json()) as any;
+    expect(
+      (
+        await call(
+          "/actions",
+          await command("start", id, 2, { commitment: current.commitment }),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await call(
+          "/actions",
+          await command("set-explorer-visibility", id, 2, {
+            hidden: false,
+            reason: "Restore this giveaway to the showcase.",
+          }),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      ((await (await call("/giveaways?paged=1&limit=10")).json()) as any).total,
+    ).toBe(1);
+  });
   it("returns bounded Discord entries only to the organizer and rejects expired lists", async () => {
     const id = crypto.randomUUID();
     db.sqlite

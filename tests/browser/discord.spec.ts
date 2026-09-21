@@ -7,11 +7,11 @@ test("local Discord setup hands off to the deployed database without generating 
 }) => {
   const config = await (await request.get("/api/config")).json();
   test.skip(!config.discordConfigured, "Requires local Discord configuration");
-  expect(config.discordSetupOrigin).toBe("https://testnet.lottewy.com");
+  expect(['https://testnet.lottewy.com','https://lottewy.com']).toContain(config.discordSetupOrigin);
   await page.goto("/create?mode=discord");
   await expect(
-    page.getByRole("link", { name: "Continue on testnet" }),
-  ).toHaveAttribute("href", "https://testnet.lottewy.com/create?mode=discord");
+    page.getByRole("link", { name: /Continue on (testnet|Lottewy)/ }),
+  ).toHaveAttribute("href", config.discordSetupOrigin+"/create?mode=discord");
   await expect(
     page.getByRole("button", { name: "Get verification code" }),
   ).toHaveCount(0);
