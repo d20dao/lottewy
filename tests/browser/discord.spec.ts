@@ -13,6 +13,14 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
   </script></body></html>`,
   );
   const linkId = "0x" + "ab".repeat(32);
+  await page.route("**/api/discord/links/*/roles", (route) =>
+    route.fulfill({
+      json: [
+        { id: "111111111111111111", name: "Community member" },
+        { id: "222222222222222222", name: "Contributor" },
+      ],
+    }),
+  );
   await page.route("**/api/discord/links", (route) =>
     route.fulfill({
       json: [
@@ -50,6 +58,16 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
   await page
     .getByLabel("Verified channel", { exact: true })
     .selectOption(linkId);
+  await page.getByLabel("Contributor", { exact: true }).check();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: "artifacts/discord-role-form-390.png",
+    fullPage: true,
+  });
   await page.getByLabel("Giveaway title").fill("Community giveaway");
   await page
     .getByLabel("Entry and prize rules")
@@ -63,6 +81,9 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
     .click();
   await expect(page.getByRole("alert")).toContainText("Connection lost");
   const id = await page.evaluate(() => (window as any).calls[0][1]);
+  expect(
+    await page.evaluate(() => (window as any).calls[0][3].roleIds),
+  ).toEqual(["222222222222222222"]);
   await page
     .getByRole("button", { name: "Sign and publish registration" })
     .click();

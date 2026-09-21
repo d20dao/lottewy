@@ -79,6 +79,12 @@ The scheduler closes registrations, snapshots entries and updates announcements.
 
 These changes are not deployed and application commands have not been published. Local automated tests mock Discord; a live identity and end-to-end Discord check remains necessary before release.
 
+Organizers can require up to ten server roles. A member needs any one selected role at join time; no selection allows everyone with channel access. The backend uses role IDs from Discord's signed interaction, never browser-provided membership. Leaving remains available if a role is subsequently removed. Roles and eligibility are fixed at publication; there is no continuous role revalidation after joining.
+
+The original announcement is edited as registration closes, the draw starts, and results arrive. Completed announcements show all winners as Discord user references, up to ten alternates, and links to the result, verification dialog and onchain transaction. These references do not ping users or roles. Winner identities are resolved from commitment-checked private openings only in that verified server channel; the public website manifest remains masked. The participant notice discloses winner announcements before joining. Hidden results are removed from the announcement on the next synchronization.
+
+Thirty days after the registration deadline, the scheduled cleanup removes an undrawn registration's entries, private chunks, revisions, reports and draft. It retains signed audit history and a minimal expired campaign tombstone to prevent ID reuse and retry the Discord expiry update. Any recorded start, attempt, chain event or non-draft giveaway excludes the record from this cleanup. Completed results and uncertain transactions are never purged by this rule. Cleanup does not erase historical backups; their retention is managed separately.
+
 ## Remaining mainnet release work
 
 - Mainnet-specific chain/deployment/proof configuration and consumer deployment. Current code and published vectors intentionally remain testnet-only.

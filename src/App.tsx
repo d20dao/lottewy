@@ -1193,7 +1193,9 @@ function GiveawayPage({
     [error, setError] = useState(""),
     [revealed, setRevealed] = useState(false),
     [revealMode, setRevealMode] = useState<RevealMode>("simple"),
-    [proofOpen, setProofOpen] = useState(false),
+    [proofOpen, setProofOpen] = useState(
+      new URLSearchParams(location.search).get("verify") === "1",
+    ),
     [reportOpen, setReportOpen] = useState(false),
     [reason, setReason] = useState(""),
     [startOpen, setStartOpen] = useState(false),

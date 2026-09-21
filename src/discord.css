@@ -4,6 +4,37 @@
   margin: 0 0 30px;
   border-bottom: 1px solid var(--line);
 }
+.discord-role-filter {
+  border: 0;
+  padding: 0;
+  margin: 28px 0 0;
+  min-width: 0;
+}
+.discord-role-filter legend {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.discord-role-options {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+.discord-channel-setup .discord-role-options label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 0;
+  min-height: 44px;
+}
+.discord-role-options input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.discord-role-options span {
+  overflow-wrap: anywhere;
+}
 .creation-source button {
   border: 0;
   border-bottom: 2px solid transparent;

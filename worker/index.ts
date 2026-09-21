@@ -29,6 +29,7 @@ import { applySeo, routeSeo, isPublicOrigin } from "../shared/seo";
 import { discordInteraction, type DiscordEnv } from "./discord";
 import {
   discordLinks,
+  discordRoles,
   linkChallenge,
   campaignCreate,
   campaignRow,
@@ -37,6 +38,7 @@ import {
   processDiscordCampaigns,
 } from "./discord-campaigns";
 import { normalizeDiscordCampaign } from "../shared/discord-campaign";
+import { expireDiscordRegistrations } from "./discord-retention";
 import {
   AbuseError,
   assertFunded,
@@ -364,6 +366,12 @@ export default {
         });
       }
       const user = await session(req, env);
+      const rolesMatch =
+        /^\/api\/discord\/links\/(0x[\da-f]{64})\/roles$/i.exec(path);
+      if (rolesMatch && req.method === "GET") {
+        assert(user && !user.suspended, "Please sign in with an active wallet");
+        return json(await discordRoles(env, user.address, rolesMatch[1]));
+      }
       if (path === "/api/discord/links" && req.method === "GET") {
         assert(user, "Please sign in with your wallet");
         return json(await discordLinks(env, user.address));
@@ -400,7 +408,7 @@ export default {
       if (path === "/api/discord/campaigns" && req.method === "GET") {
         assert(user, "Please sign in with your wallet");
         const rows = await env.DB.prepare(
-          "SELECT * FROM discord_campaigns WHERE owner=? ORDER BY created DESC LIMIT 50",
+          "SELECT * FROM discord_campaigns WHERE owner=? AND status<>'expired' ORDER BY created DESC LIMIT 50",
         )
           .bind(user.address)
           .all();
@@ -585,6 +593,8 @@ export default {
           row = (await env.DB.prepare("SELECT * FROM giveaways WHERE id=?")
             .bind(row.id)
             .first<Row>())!;
+          if (ctx && (JSON.parse(row.public_json) as Giveaway).registration)
+            ctx.waitUntil(processDiscordCampaigns(env));
         }
         if (isPrivate) {
           assert(
@@ -1109,7 +1119,11 @@ export default {
           ),
           env.DB.prepare("DELETE FROM atomic_guard"),
         ]);
-        if (ctx && action.actionType.startsWith("discord"))
+        if (
+          ctx &&
+          (action.actionType.startsWith("discord") ||
+            (row && (JSON.parse(row.public_json) as Giveaway).registration))
+        )
           ctx.waitUntil(processDiscordCampaigns(env));
         return json(result);
       }
@@ -1159,8 +1173,16 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ) {
-    ctx.waitUntil(reconcile(env));
-    ctx.waitUntil(processDiscordCampaigns(env));
+    ctx.waitUntil(
+      (async () => {
+        try {
+          await reconcile(env);
+        } finally {
+          await expireDiscordRegistrations(env);
+          await processDiscordCampaigns(env);
+        }
+      })(),
+    );
     ctx.waitUntil(
       env.DB.batch([
         env.DB.prepare("DELETE FROM sessions WHERE expires<?").bind(now()),

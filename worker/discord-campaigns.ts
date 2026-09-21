@@ -6,6 +6,7 @@ import {
 import { storeJson } from "./storage";
 import { discordMentions, discordText } from "./discord-format";
 import type { DiscordEnv } from "./discord";
+import { campaignResultMessage } from "./discord-result-message";
 export type CampaignEnv = DiscordEnv & { DISCORD_BOT_TOKEN?: string };
 export class DiscordCampaignError extends Error {}
 function assert(condition: unknown, message: string): asserts condition {
@@ -100,6 +101,25 @@ export async function discordLinks(env: CampaignEnv, owner: string) {
     verifiedAt: verified_at,
   }));
 }
+export async function discordRoles(
+  env: CampaignEnv,
+  owner: string,
+  linkId: string,
+) {
+  const link = await env.DB.prepare(
+    "SELECT guild_id FROM discord_links WHERE id=? AND owner=?",
+  )
+    .bind(linkId, owner)
+    .first<{ guild_id: string }>();
+  assert(link, "Verify this server channel first");
+  const guild = await discordApi(env, "/guilds/" + link.guild_id);
+  return (Array.isArray(guild.roles) ? guild.roles : [])
+    .filter((r: any) => snowflake.test(r.id) && r.id !== link.guild_id)
+    .map((r: any) => ({
+      id: String(r.id),
+      name: String(r.name).slice(0, 100),
+    })) as { id: string; name: string }[];
+}
 export async function linkChallenge(env: CampaignEnv, owner: string) {
   assert(
     env.DISCORD_APP_ID && env.DISCORD_APP_PUBLIC_KEY && env.DISCORD_BOT_TOKEN,
@@ -191,6 +211,7 @@ async function currentLinkAccess(
   env: CampaignEnv,
   owner: string,
   linkId: string,
+  requiredRoles: string[] = [],
 ) {
   const link = await env.DB.prepare(
     "SELECT * FROM discord_links WHERE id=? AND owner=?",
@@ -221,6 +242,15 @@ async function currentLinkAccess(
       (permissions & 8n) !== 0n,
     "The verifier no longer has Manage Server permission. Verify the channel again.",
   );
+  assert(
+    requiredRoles.every(
+      (id) =>
+        id !== link.guild_id &&
+        Array.isArray(guild.roles) &&
+        guild.roles.some((r: any) => r.id === id),
+    ),
+    "A selected role is no longer available in this server",
+  );
   return link;
 }
 export async function campaignCreate(
@@ -237,7 +267,7 @@ export async function campaignCreate(
     d.endsAt >= now + 120 && d.endsAt <= now + 30 * 86400,
     "Registration must close between 2 minutes and 30 days from now",
   );
-  const link = await currentLinkAccess(env, owner, d.linkId);
+  const link = await currentLinkAccess(env, owner, d.linkId, d.roleIds);
   const row: Campaign = {
     id,
     owner,
@@ -301,6 +331,7 @@ export function publicCampaign(row: Campaign) {
     closedAt: row.closed_at,
     participantCount: row.participant_count,
     payloadHash: row.payload_hash,
+    roleIds: d.roleIds || [],
     giveawayId: row.status === "ready" ? row.id : null,
     errorCode: row.error_code,
     messageUrl: row.message_id
@@ -349,6 +380,14 @@ export async function participantAction(
     "Use the original giveaway message",
   );
   const eligible = `EXISTS(SELECT 1 FROM discord_campaigns c JOIN users u ON u.address=c.owner WHERE c.id=? AND c.status='open' AND c.ends_at>unixepoch() AND u.suspended=0)`;
+  const requiredRoles =
+    (JSON.parse(row.input_json) as DiscordCampaignInput).roleIds || [];
+  if (join && requiredRoles.length)
+    assert(
+      Array.isArray(interaction.member?.roles) &&
+        requiredRoles.some((id) => interaction.member.roles.includes(id)),
+      "You need at least one of the required server roles to join this giveaway. Roles are checked when you join.",
+    );
   const statement = join
     ? env.DB.prepare(
         `INSERT OR IGNORE INTO discord_entries(campaign_id,user_id,display_name,joined_at) SELECT ?,?,?,unixepoch() WHERE ${eligible} AND (SELECT participant_count FROM discord_campaigns WHERE id=?)<10000`,
@@ -400,10 +439,12 @@ function announcement(env: CampaignEnv, row: Campaign) {
     description = open
       ? `🎉 **Registration is open**\nCloses <t:${row.ends_at}:F> (<t:${row.ends_at}:R>).\nOne entry per Discord account. Join or leave before the deadline. The organizer starts the draw on Lottewy after registration closes.`
       : closed
-        ? `Registration is closed with **${row.participant_count} entries**. The list is fixed; the organizer can now start the draw on Lottewy.`
-        : row.status === "insufficient"
-          ? `Registration closed with ${row.participant_count} entries. There are not enough entries for the announced winner and alternate counts. No draw has started.`
-          : "This giveaway registration is unavailable or cancelled.";
+        ? `🔒 **Entries are closed**\n${row.participant_count} entries are locked. Waiting for the organizer to start the draw. No winners have been selected yet.`
+        : row.status === "expired"
+          ? "**Expired. No draw was started.**\nRegistration closed over 30 days ago. The participant list and undrawn draft have been removed."
+          : row.status === "insufficient"
+            ? `Registration closed with ${row.participant_count} entries. There are not enough entries for the announced winner and alternate counts. No draw has started.`
+            : "This giveaway registration is unavailable or cancelled.";
   const url =
     new URL(env.APP_ORIGIN).origin + (closed ? "/g/" : "/discord/") + row.id;
   return {
@@ -414,20 +455,34 @@ function announcement(env: CampaignEnv, row: Campaign) {
         url,
         color: 0xb7e968,
         description,
-        fields: [
-          {
-            name: "Selection",
-            value: `${d.winners} winners · ${d.reserves} alternates · equal chances`,
-          },
-          {
-            name: "Rules",
-            value:
-              discordText(d.rules.slice(0, 450)) +
-              (d.rules.length > 450 ? "… Full rules on Lottewy." : ""),
-          },
-        ],
+        fields:
+          row.status === "expired"
+            ? []
+            : [
+                ...(d.roleIds?.length
+                  ? [
+                      {
+                        name: "Who can join",
+                        value:
+                          "At least one of: " +
+                          d.roleIds.map((id) => `<@&${id}>`).join(", ") +
+                          ". Roles are checked when joining.",
+                      },
+                    ]
+                  : []),
+                {
+                  name: "Selection",
+                  value: `${d.winners} winners · ${d.reserves} alternates · equal chances`,
+                },
+                {
+                  name: "Rules",
+                  value:
+                    discordText(d.rules.slice(0, 450)) +
+                    (d.rules.length > 450 ? "… Full rules on Lottewy." : ""),
+                },
+              ],
         footer: {
-          text: "Lottewy · Participant IDs are kept privately. The organizer delivers any prizes.",
+          text: "Lottewy · Winners are announced here. The full participant list stays private.",
         },
       },
     ],
@@ -459,7 +514,12 @@ function announcement(env: CampaignEnv, row: Campaign) {
           {
             type: 2,
             style: 5,
-            label: closed ? "View giveaway & proof" : "Rules & registration",
+            label:
+              row.status === "expired"
+                ? "View status"
+                : closed
+                  ? "View giveaway & proof"
+                  : "Rules & registration",
             url,
           },
         ],
@@ -504,7 +564,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
   if (!env.DISCORD_BOT_TOKEN) return;
   const work = await env.DB.prepare(
     `SELECT id FROM discord_campaigns WHERE status='publishing' OR status='closing' OR (status='open' AND ends_at<=unixepoch())
-   OR (message_id IS NOT NULL AND COALESCE(message_state,'')<>status AND status IN ('ready','insufficient','cancelled')) ORDER BY checked_at LIMIT 3`,
+   OR (message_id IS NOT NULL AND COALESCE(message_state,'')<>CASE WHEN status='ready' THEN COALESCE((SELECT 'result:'||CASE WHEN hidden=1 THEN 'hidden' ELSE g.status END FROM giveaways g WHERE g.id=discord_campaigns.id),'ready') ELSE status END AND status IN ('ready','insufficient','cancelled','expired')) ORDER BY checked_at LIMIT 3`,
   ).all<{ id: string }>();
   for (const item of work.results) {
     const token = crypto.randomUUID();
@@ -529,6 +589,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
           env,
           row.owner,
           (JSON.parse(row.input_json) as DiscordCampaignInput).linkId,
+          (JSON.parse(row.input_json) as DiscordCampaignInput).roleIds,
         );
         const started = await env.DB.prepare(
           "UPDATE discord_campaigns SET publish_started_at=unixepoch() WHERE id=? AND status='publishing' AND publish_started_at IS NULL AND ends_at>unixepoch() AND lease_token=? AND lease_until>unixepoch() AND EXISTS(SELECT 1 FROM users WHERE address=discord_campaigns.owner AND suspended=0)",
@@ -655,21 +716,39 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
         }
       }
       row = (await campaignRow(env, item.id))!;
+      const resultRecord =
+        row.status === "ready"
+          ? await env.DB.prepare(
+              "SELECT public_json,private_json,status,hidden FROM giveaways WHERE id=?",
+            )
+              .bind(row.id)
+              .first<{
+                public_json: string;
+                private_json: string;
+                status: string;
+                hidden: number;
+              }>()
+          : null;
+      const messageState = resultRecord
+        ? "result:" + (resultRecord.hidden ? "hidden" : resultRecord.status)
+        : row.status;
       if (
         row.message_id &&
-        row.message_state !== row.status &&
-        ["ready", "insufficient", "cancelled"].includes(row.status)
+        row.message_state !== messageState &&
+        ["ready", "insufficient", "cancelled", "expired"].includes(row.status)
       ) {
         await discordApi(
           env,
           `/channels/${row.channel_id}/messages/${row.message_id}`,
           "PATCH",
-          announcement(env, row),
+          resultRecord
+            ? await campaignResultMessage(env, resultRecord)
+            : announcement(env, row),
         );
         await env.DB.prepare(
           "UPDATE discord_campaigns SET message_state=?,error_code=NULL WHERE id=? AND status=? AND lease_token=? AND lease_until>unixepoch()",
         )
-          .bind(row.status, row.id, row.status, token)
+          .bind(messageState, row.id, row.status, token)
           .run();
       }
     } catch {

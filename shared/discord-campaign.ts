@@ -13,6 +13,7 @@ export type DiscordCampaignInput = {
   listed: boolean;
   linkId: string;
   endsAt: number;
+  roleIds?: string[];
 };
 export function normalizeDiscordCampaign(
   input: DiscordCampaignInput,
@@ -27,6 +28,15 @@ export function normalizeDiscordCampaign(
     return result;
   };
   assert(input && typeof input === "object", "Campaign details are required");
+  assert(
+    input.roleIds === undefined ||
+      (Array.isArray(input.roleIds) &&
+        input.roleIds.length <= 10 &&
+        input.roleIds.every(
+          (id) => typeof id === "string" && /^\d{17,20}$/.test(id),
+        )),
+    "Choose up to 10 server roles",
+  );
   assert(
     Number.isInteger(input.winners) &&
       input.winners >= 1 &&
@@ -65,5 +75,8 @@ export function normalizeDiscordCampaign(
     listed: input.listed,
     linkId: input.linkId.toLowerCase(),
     endsAt: input.endsAt,
+    ...(input.roleIds?.length
+      ? { roleIds: [...new Set(input.roleIds)].sort() }
+      : {}),
   };
 }

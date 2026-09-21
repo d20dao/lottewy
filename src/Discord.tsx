@@ -54,6 +54,7 @@ type Campaign = {
   giveawayId: string | null;
   errorCode: string | null;
   messageUrl: string | null;
+  roleIds?: string[];
 };
 const names: Record<string, string> = {
   publishing: "Publishing to Discord",
@@ -63,6 +64,7 @@ const names: Record<string, string> = {
   ready: "Registration closed",
   insufficient: "Not enough participants",
   cancelled: "Registration cancelled",
+  expired: "Registration expired",
 };
 const localTime = (ms: number) =>
   new Date(ms - new Date(ms).getTimezoneOffset() * 60000)
@@ -88,6 +90,7 @@ const initial = (owner: string) => {
     ends: localTime(Date.now() + 3600000),
     listed: false,
     linkId: "",
+    roleIds: [],
   };
 };
 const date = (seconds: number) =>
@@ -100,6 +103,10 @@ export function DiscordCreator(props: Props) {
   const { user, config, busy, run, mutate, notify, onLogin } = props;
   const [form, setForm] = useState(() => initial(user?.address || "guest")),
     [links, setLinks] = useState<Link[]>([]),
+    [roles, setRoles] = useState<{ id: string; name: string }[]>([]),
+    [rolesError, setRolesError] = useState(""),
+    [rolesLoading, setRolesLoading] = useState(false),
+    [roleRetry, setRoleRetry] = useState(0),
     [challenge, setChallenge] = useState<{
       code: string;
       nonceRef: string;
@@ -115,6 +122,31 @@ export function DiscordCreator(props: Props) {
     identity = useRef(owner),
     heading = useRef<HTMLHeadingElement>(null);
   identity.current = owner;
+  useEffect(() => {
+    let live = true;
+    setRoles([]);
+    setRolesError("");
+    if (!owner || !form.linkId) {
+      setRolesLoading(false);
+      return;
+    }
+    setRolesLoading(true);
+    api<{ id: string; name: string }[]>(
+      "/discord/links/" + form.linkId + "/roles",
+    )
+      .then((rows) => {
+        if (live) setRoles(rows);
+      })
+      .catch((e) => {
+        if (live) setRolesError(e.message);
+      })
+      .finally(() => {
+        if (live) setRolesLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [owner, form.linkId, roleRetry]);
   useEffect(() => {
     setForm(initial(owner || "guest"));
     setLinks([]);
@@ -146,7 +178,11 @@ export function DiscordCreator(props: Props) {
         if (live) {
           setLinks(rows);
           if (status?.linkId && rows.some((r) => r.id === status.linkId)) {
-            setForm((current: any) => ({ ...current, linkId: status.linkId }));
+            setForm((current: any) => ({
+              ...current,
+              linkId: status.linkId,
+              roleIds: current.linkId === status.linkId ? current.roleIds : [],
+            }));
             setChallenge(null);
             notify("Discord channel verified.");
           }
@@ -165,7 +201,11 @@ export function DiscordCreator(props: Props) {
     };
   }, [owner, config?.discordConfigured, challenge?.code]);
   const field = (name: string, value: unknown) => {
-    setForm((current: any) => ({ ...current, [name]: value }));
+    setForm((current: any) => ({
+      ...current,
+      [name]: value,
+      ...(name === "linkId" ? { roleIds: [] } : {}),
+    }));
     setError("");
   };
   function details() {
@@ -178,6 +218,7 @@ export function DiscordCreator(props: Props) {
       listed: form.listed,
       linkId: form.linkId,
       endsAt: Math.floor(new Date(form.ends).getTime() / 1000),
+      roleIds: form.roleIds || [],
     });
     const now = Math.floor(Date.now() / 1000);
     if (d.endsAt < now + 120 || d.endsAt > now + 30 * 86400)
@@ -301,8 +342,8 @@ export function DiscordCreator(props: Props) {
           >
             <h2 id="discord-channel-heading">Choose the server channel</h2>
             <p className="muted">
-              Anyone who can access the selected channel can join. Set channel
-              access rules in Discord before publishing.
+              Choose where the bot posts the announcement. Members need access
+              to this channel and must meet any role requirement below.
             </p>
             <label htmlFor="discord-channel">Verified channel</label>
             <select
@@ -372,11 +413,69 @@ export function DiscordCreator(props: Props) {
                 </a>
               </div>
             </Collapsible>
+            {form.linkId && (
+              <fieldset className="discord-role-filter">
+                <legend>Who can join?</legend>
+                <p className="small muted">
+                  No roles selected: anyone with channel access. Otherwise,
+                  members need at least one selected role when joining. Up to 10
+                  roles.
+                </p>
+                {rolesLoading ? (
+                  <p role="status">Loading server roles…</p>
+                ) : rolesError ? (
+                  <div>
+                    <p role="alert">{rolesError}</p>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => setRoleRetry((n) => n + 1)}
+                    >
+                      Retry loading roles
+                    </button>
+                  </div>
+                ) : (
+                  <div className="discord-role-options">
+                    {roles.length ? (
+                      roles.map((role) => (
+                        <label key={role.id}>
+                          <input
+                            type="checkbox"
+                            checked={(form.roleIds || []).includes(role.id)}
+                            disabled={
+                              !(form.roleIds || []).includes(role.id) &&
+                              (form.roleIds || []).length >= 10
+                            }
+                            onChange={(e) =>
+                              field(
+                                "roleIds",
+                                e.target.checked
+                                  ? [...(form.roleIds || []), role.id]
+                                  : (form.roleIds || []).filter(
+                                      (id: string) => id !== role.id,
+                                    ),
+                              )
+                            }
+                          />
+                          <span>{role.name}</span>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="small muted">
+                        This server has no additional roles.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </fieldset>
+            )}
             <div className="discord-flow-note">
               <Users size={20} />
               <p>
                 One entry per Discord account. Members can join or leave until
-                the deadline. Afterwards, the list and rules are fixed.
+                the deadline. Afterwards, the list and rules are fixed. Winners
+                are announced in the same Discord message. Undrawn registrations
+                are cleaned up 30 days after closing.
               </p>
             </div>
           </section>
@@ -488,6 +587,19 @@ export function DiscordCreator(props: Props) {
           {form.description && <p className="preserve">{form.description}</p>}
           <p className="preserve">{form.rules}</p>
           <dl className="discord-summary">
+            <div>
+              <dt>Required roles</dt>
+              <dd>
+                {form.roleIds?.length
+                  ? form.roleIds
+                      .map(
+                        (id: string) =>
+                          roles.find((r) => r.id === id)?.name || id,
+                      )
+                      .join(" or ")
+                  : "Anyone with channel access"}
+              </dd>
+            </div>
             <div>
               <dt>Winners</dt>
               <dd>{form.winners}</dd>
@@ -623,6 +735,15 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
         Loading registration…
       </p>
     );
+  if (campaign.status === "expired")
+    return (
+      <Empty title="Registration expired">
+        <p>
+          No draw was started within 30 days of closing. The participant list
+          and undrawn draft have been removed.
+        </p>
+      </Empty>
+    );
   if (campaign.status === "hidden")
     return (
       <Empty title="Content under review">
@@ -680,6 +801,12 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
         account gets one entry; no wallet is required to join. The organizer
         starts the draw and delivers any prizes.
       </p>
+      {!!campaign.roleIds?.length && (
+        <p>
+          Required roles (at least one): {campaign.roleIds.join(", ")}. Roles
+          are checked when joining.
+        </p>
+      )}
       <div className="actions wrap">
         {campaign.messageUrl && (
           <a

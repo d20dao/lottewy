@@ -11,6 +11,8 @@ import {
 } from "../worker/discord-campaigns";
 import { loadJson } from "../worker/storage";
 import { hash } from "../shared/core";
+import { CHAIN_ID, COORDINATOR, select } from "../shared/core";
+import { expireDiscordRegistrations } from "../worker/discord-retention";
 const owner = "0x0000000000000000000000000000000000000001",
   app = "123456789012345678",
   guild = "234567890123456789",
@@ -282,4 +284,113 @@ it("never prepares a draw with too few participants and excludes bot accounts", 
   expect(
     db.sqlite.prepare("SELECT COUNT(*) n FROM giveaways").get(),
   ).toMatchObject({ n: 0 });
+});
+
+it("enforces any-of required roles on joining but always permits leaving before close", async () => {
+  const { id } = await create();
+  await processDiscordCampaigns(env);
+  const row = (await campaignRow(env, id))!,
+    input = JSON.parse(row.input_json);
+  input.roleIds = ["111111111111111111", "222222222222222222"];
+  db.sqlite
+    .prepare("UPDATE discord_campaigns SET input_json=? WHERE id=?")
+    .run(JSON.stringify(input), id);
+  await expect(participantAction(env, interaction(), id, true)).rejects.toThrow(
+    "required server roles",
+  );
+  const member = interaction();
+  (member.member as any).roles = ["222222222222222222"];
+  expect(await participantAction(env, member, id, true)).toContain(
+    "You are in",
+  );
+  expect(await participantAction(env, interaction(), id, false)).toContain(
+    "removed",
+  );
+});
+
+it("edits the original message through waiting, pending and winners without duplicate sends", async () => {
+  const { id, input } = await create();
+  await processDiscordCampaigns(env);
+  await participantAction(env, interaction(), id, true);
+  await participantAction(env, interaction("789012345678901234"), id, true);
+  clock = input.endsAt;
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].description).toContain(
+    "Waiting for the organizer",
+  );
+  db.sqlite.prepare("UPDATE giveaways SET status='pending' WHERE id=?").run(id);
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].description).toContain("Draw in progress");
+  const g = JSON.parse(
+    (
+      db.sqlite
+        .prepare("SELECT public_json FROM giveaways WHERE id=?")
+        .get(id) as any
+    ).public_json,
+  );
+  g.status = "completed";
+  g.evidence = {
+    chainId: CHAIN_ID,
+    coordinator: COORDINATOR,
+    consumer: owner,
+    word: "0x" + "01".repeat(32),
+    txHash: "0x" + "02".repeat(32),
+    requestId: "1",
+  };
+  db.sqlite
+    .prepare("UPDATE giveaways SET status='completed',public_json=? WHERE id=?")
+    .run(JSON.stringify(g), id);
+  await processDiscordCampaigns(env);
+  const message = patches.at(-1);
+  expect(message.embeds[0].description).toContain("draw is complete");
+  const winner = select(g.manifest, g.evidence.word, g.commitment).winners[0];
+  expect(message.embeds[0].fields[0].value).toContain(
+    winner === 1 ? "678901234567890123" : "789012345678901234",
+  );
+  expect(
+    message.components[0].components.some((b: any) =>
+      b.url.endsWith("?verify=1"),
+    ),
+  ).toBe(true);
+  expect(message.allowed_mentions).toEqual({ parse: [] });
+  expect(posts).toHaveLength(1);
+  const count = patches.length;
+  await processDiscordCampaigns(env);
+  expect(patches).toHaveLength(count);
+  db.sqlite.prepare("UPDATE giveaways SET hidden=1 WHERE id=?").run(id);
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].title).toBe("Giveaway unavailable");
+});
+
+it("purges an undrawn roster after 30 days, updates Discord, and preserves started records", async () => {
+  const { id, input } = await create();
+  await processDiscordCampaigns(env);
+  await participantAction(env, interaction(), id, true);
+  await participantAction(env, interaction("789012345678901234"), id, true);
+  clock = input.endsAt;
+  await processDiscordCampaigns(env);
+  clock = input.endsAt + 2591999;
+  await expireDiscordRegistrations(env);
+  expect((await campaignRow(env, id))!.status).toBe("ready");
+  db.sqlite.prepare("UPDATE giveaways SET status='pending' WHERE id=?").run(id);
+  clock++;
+  await expireDiscordRegistrations(env);
+  expect((await campaignRow(env, id))!.status).toBe("ready");
+  db.sqlite.prepare("UPDATE giveaways SET status='draft' WHERE id=?").run(id);
+  await expireDiscordRegistrations(env);
+  expect((await campaignRow(env, id))!.status).toBe("expired");
+  for (const table of [
+    "giveaways",
+    "revisions",
+    "discord_entries",
+    "json_chunks",
+  ])
+    expect(
+      (db.sqlite.prepare("SELECT COUNT(*) n FROM " + table).get() as any).n,
+    ).toBe(0);
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].description).toContain(
+    "Expired. No draw was started.",
+  );
+  expect(posts).toHaveLength(1);
 });
