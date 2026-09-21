@@ -1,0 +1,18 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE users (address TEXT PRIMARY KEY, created INTEGER NOT NULL, suspended INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE nonces (nonce TEXT PRIMARY KEY, address TEXT NOT NULL, purpose TEXT NOT NULL, expires INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0, message TEXT);
+CREATE TABLE sessions (token TEXT PRIMARY KEY, address TEXT NOT NULL REFERENCES users(address), expires INTEGER NOT NULL);
+CREATE TABLE giveaways (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, owner TEXT NOT NULL REFERENCES users(address), revision INTEGER NOT NULL, status TEXT NOT NULL, public_json TEXT NOT NULL, private_json TEXT NOT NULL, created INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE revisions (giveaway_id TEXT NOT NULL REFERENCES giveaways(id), revision INTEGER NOT NULL, public_json TEXT NOT NULL, private_json TEXT NOT NULL, review_json TEXT NOT NULL, PRIMARY KEY(giveaway_id,revision));
+CREATE TABLE actions (action_id TEXT PRIMARY KEY, digest TEXT NOT NULL UNIQUE, signer TEXT NOT NULL, action_type TEXT NOT NULL, target TEXT NOT NULL, expected_revision INTEGER NOT NULL, result_revision INTEGER NOT NULL, payload_json TEXT NOT NULL, signed_json TEXT NOT NULL, signature TEXT NOT NULL, verification_json TEXT NOT NULL, accepted INTEGER NOT NULL, result_json TEXT NOT NULL);
+CREATE TRIGGER actions_no_update BEFORE UPDATE ON actions BEGIN SELECT RAISE(ABORT,'immutable journal'); END;
+CREATE TRIGGER actions_no_delete BEFORE DELETE ON actions BEGIN SELECT RAISE(ABORT,'immutable journal'); END;
+CREATE TABLE attempts (giveaway_id TEXT PRIMARY KEY REFERENCES giveaways(id), commitment TEXT NOT NULL, reserved INTEGER NOT NULL, start_block TEXT NOT NULL, tx_hash TEXT, request_id TEXT, state TEXT NOT NULL, evidence_json TEXT, last_checked INTEGER);
+CREATE TABLE chain_events (event_id TEXT PRIMARY KEY, giveaway_id TEXT NOT NULL, block_hash TEXT NOT NULL, block_number TEXT NOT NULL, tx_hash TEXT NOT NULL, evidence_json TEXT NOT NULL, observed INTEGER NOT NULL);
+CREATE TABLE reports (id TEXT PRIMARY KEY, giveaway_id TEXT NOT NULL REFERENCES giveaways(id), reporter TEXT NOT NULL, reason TEXT NOT NULL, state TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL);
+CREATE TABLE rate_limits (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL);
+CREATE TABLE atomic_guard (ok INTEGER CHECK(ok = 1));
+CREATE INDEX giveaways_owner ON giveaways(owner,created);
+CREATE INDEX actions_target ON actions(target,accepted);
+CREATE INDEX sessions_expiry ON sessions(expires);
+CREATE INDEX attempts_state ON attempts(state);

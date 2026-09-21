@@ -1,0 +1,28 @@
+{
+  "giveawayId": "0a3f0f10-1abe-46d0-baae-d66e54acd720",
+  "slug": "0a3f0f10-1abe-46d0-baae-d66e54acd720",
+  "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+  "transactionHash": "0x786463c9af5d7c10ec54c178d725adfa7c262d0b6f76d6c13aec0bb420c79055",
+  "requestId": "5258",
+  "commitment": "0x61084c4ecb8d2cf4025250286225e86ed82c04ea13a21f3caf81630a9351fd3b",
+  "word": "0xa2ff77a563c0f06b69175f6e15466e1ab5bc675421e8ea48c51f4d5de9419715",
+  "outcome": {
+    "winners": [
+      4,
+      2
+    ],
+    "reserves": [
+      3
+    ]
+  },
+  "proof": {
+    "valid": true,
+    "requestId": "5258",
+    "word": "0xa2ff77a563c0f06b69175f6e15466e1ab5bc675421e8ea48c51f4d5de9419715",
+    "proofHash": "0x1f464130d15967b854e21cb90ba987f852e669cea86875d8a988f07481627f79",
+    "transcriptHash": "0xca6e24fc961a7952e26fbb0b62857e712dc5a67a321579ec8c65302e27e414ac",
+    "packet": "0x066f3cf1c45b3b5f4c41a1b49d3be7bfdb4bce7d646b4e1310151e77723171087925041854c5453e6b1d0d8b2cb0fd5d2fcac4ff523f5c473ce58bf68db96950de2733dc2def6c686a06395814a19dda9df52c3216742a6acc97f045d7159c027079f8ec5f915c8cdca50a3ae3f59330976ca5d99c031b72832af28a8e2d8999f67b9c1d436d030100a9a0595949ead6a17a8d1e14594bb8bce5ef5beda8fb5e4adacc04b3d1d4fb2bb17210750300d3208019fca72cf6ce68e68f9614cdcca685e9b5f97f4112eda6fb701975f8f6789cae7c2f74a2bbf78ed7050ce3374b590000000000000000000000007aeb454a8ba8e088e9d5b0b2585808294acaddbd9409375ae21cf7c0698ed21d3b118b16ee2e63c5c8904b98108715aefa554e7de3861d31aeafc9683bba7246bfe2d429ff4eb754aecc7ab584bd559a2a7e31f347b01b17f24154cc211e8da7f90d9e49e3eaf68d25ebaca99a608ac221381ffde124caeebdd3eb5fca829b61f340c4aa961f4a7dd5bc3c7579c9704be9d8fcb3754163364286f152b4a65193c45f474cd07711fc0647e9fd7e442fbf0507ac98",
+    "acceptanceTx": "0xc5374f75e30b242e916e29f3f8d91ab1050598783feebaad379f59302d806c0a",
+    "scope": "VRF proof + pinned key + request/consumer/receipt/block bindings; epoch source attestations rely on onchain coordinator verification"
+  }
+}

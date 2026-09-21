@@ -1,0 +1,16 @@
+import {it,expect} from 'vitest';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {parseEnv} from 'node:util';
+import {createPublicClient,createWalletClient,http,type Hex} from 'viem';
+import {privateKeyToAccount} from 'viem/accounts';
+import {arc} from '../shared/chain';
+import {hash,actionData,type Action} from '../shared/core';
+it.skipIf(process.env.RUN_CANCEL_TESTNET!=='1')('confirmed same-nonce cancellation unlocks an unsubmitted testnet draw',async()=>{
+ const vars=parseEnv(readFileSync('.env','utf8')),candidates=Object.entries(vars).filter(([k,v])=>!/JEV/i.test(k)&&/^(0x)?[a-f\d]{64}$/i.test(v));if(candidates.length!==1)throw new Error('One testnet key is required.');const value=candidates[0][1],account=privateKeyToAccount((value.startsWith('0x')?value:'0x'+value) as Hex);
+ const rpc=createPublicClient({chain:arc,transport:http()}),wallet=createWalletClient({chain:arc,account,transport:http()});expect(await rpc.getChainId()).toBe(5042002);
+ let cookie='';const origin='http://127.0.0.1:5173';async function api(path:string,payload?:unknown){const r=await fetch(origin+'/api'+path,{method:payload===undefined?'GET':'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:cookie},...(payload===undefined?{}:{body:JSON.stringify(payload)})});if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie')!.split(';')[0];const b=await r.json() as any;if(!r.ok)throw new Error(b.error);return b;}
+ const challenge=await api('/auth/challenge',{address:account.address});await api('/auth/verify',{nonce:challenge.nonce,signature:await account.signMessage({message:challenge.message})});
+ const id=crypto.randomUUID();async function act(type:string,payload:unknown,revision:number){const c=await api('/actions/challenge',{});const action:Action={signer:account.address,actionId:crypto.randomUUID(),actionType:type,giveawayId:id,payloadHash:hash(payload),expectedRevision:revision,...c};return api('/actions',{action,payload,signature:await account.signTypedData(actionData(action))});}
+ const draft={title:'Testnet cancellation verification',description:'Synthetic test. No prize.',rules:'Participation is free. Each synthetic entry has an equal chance. This is a technical test with no prize.',entries:['Synthetic Entry One','Synthetic Entry Two'],winners:1,reserves:0};const g=await act('create',draft,0),reserved=await act('start',{commitment:g.commitment},1);expect(reserved.reservation.nonce).toBeTypeOf('number');
+ const tx=await wallet.sendTransaction({to:account.address,value:0n,data:'0x',nonce:reserved.reservation.nonce,gas:21000n});await api('/submission-hint',{id,txHash:tx,kind:'cancel'});const receipt=await rpc.waitForTransactionReceipt({hash:tx,confirmations:13});expect(receipt.status).toBe('success');await fetch('http://127.0.0.1:8787/cdn-cgi/local/scheduled');const restored=await api(`/giveaways/${id}`);expect(restored.status).toBe('draft');expect(restored.reservation).toBeUndefined();const updated=await act('edit',{...draft,title:'Testnet cancellation verified'},1);expect(updated.revision).toBe(2);writeFileSync('docs/testnet-cancellation.json',JSON.stringify({chainId:5042002,giveawayId:id,txHash:tx,nonce:reserved.reservation.nonce,restoredStatus:restored.status,editedRevision:updated.revision},null,2));
+},90000);

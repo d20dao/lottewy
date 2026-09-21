@@ -1,0 +1,90 @@
+{
+  "id": "0a3f0f10-1abe-46d0-baae-d66e54acd720",
+  "slug": "0a3f0f10-1abe-46d0-baae-d66e54acd720",
+  "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+  "revision": 1,
+  "status": "completed",
+  "manifest": {
+    "version": 1,
+    "algorithm": "lottewy-weighted-reject-v2",
+    "normalization": "nfc-trim-v1",
+    "masking": "strict-v2-en",
+    "id": "0a3f0f10-1abe-46d0-baae-d66e54acd720",
+    "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+    "revision": 1,
+    "title": "Weighted Arc Testnet verification",
+    "description": "Synthetic test entries. No prize or real promotion.",
+    "rules": "Entries use the public weights in the list. Selection is without replacement; each selected entry is removed entirely. Participation is free. This technical test has no prize.",
+    "winners": 2,
+    "reserves": 1,
+    "entries": [
+      {
+        "id": 1,
+        "label": "S*** E*** O***",
+        "commitment": "0xb319d6860ed60f743d517b0fbbffe4cde3c00c400f8fcd64292a025fe97ad20e",
+        "weight": 1
+      },
+      {
+        "id": 2,
+        "label": "S*** E*** T***",
+        "commitment": "0xeeb043225b6eb758460880922d13544350312865b7aad0e3441b52e2d1898dee",
+        "weight": 2
+      },
+      {
+        "id": 3,
+        "label": "S*** E*** T***",
+        "commitment": "0xb6f288ffef40a8be85e0a99fcbc25e65b42e7a9827dcb087e69b494931a383dd",
+        "weight": 3
+      },
+      {
+        "id": 4,
+        "label": "S*** E*** F***",
+        "commitment": "0xdd445e29ea649d3326ca10665a050a4c0de5aae85a42764e256f9677b93996d9",
+        "weight": 4
+      }
+    ]
+  },
+  "commitment": "0x61084c4ecb8d2cf4025250286225e86ed82c04ea13a21f3caf81630a9351fd3b",
+  "created": 1789946836,
+  "review": {
+    "mode": "live",
+    "model": "jev-1.13.0",
+    "policy": "lottewy-content-v2"
+  },
+  "reservation": {
+    "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+    "nonce": 1681
+  },
+  "recovery": {
+    "requestId": "5258",
+    "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+    "deadline": "1789947019",
+    "callbackFailed": false,
+    "refundable": false,
+    "refunded": false,
+    "refundCredit": "0",
+    "overpaymentCredit": "0",
+    "feePaid": "80000000000000000",
+    "refundBps": 10000
+  },
+  "evidence": {
+    "word": "0xa2ff77a563c0f06b69175f6e15466e1ab5bc675421e8ea48c51f4d5de9419715",
+    "requestId": "5258",
+    "txHash": "0x786463c9af5d7c10ec54c178d725adfa7c262d0b6f76d6c13aec0bb420c79055",
+    "blockHash": "0x4b14d4b8e410020e2154e7be7f0a934aa93b0957b1fc62d4223334da3aaa744e",
+    "blockNumber": "63165861",
+    "logIndex": 37,
+    "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+    "coordinator": "0xd20DA0FF9087d053f0291524Eac12abA1ADBd945",
+    "chainId": 5042002,
+    "fulfillmentBlockHash": "0x59c9da613662936d1e3bfbb6b1ab4342790714e28d0225dc7c87a9a04c8a68b7",
+    "fulfillmentBlockNumber": "63165871",
+    "fulfillmentTxHash": "0xc5374f75e30b242e916e29f3f8d91ab1050598783feebaad379f59302d806c0a"
+  },
+  "history": [
+    {
+      "revision": 1,
+      "commitment": "0x61084c4ecb8d2cf4025250286225e86ed82c04ea13a21f3caf81630a9351fd3b"
+    }
+  ]
+}

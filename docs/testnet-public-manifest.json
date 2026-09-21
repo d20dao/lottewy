@@ -1,0 +1,82 @@
+{
+  "id": "11e8aadb-430b-4fa4-8e54-f109792f7f67",
+  "slug": "11e8aadb-430b-4fa4-8e54-f109792f7f67",
+  "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+  "revision": 1,
+  "status": "completed",
+  "manifest": {
+    "version": 1,
+    "algorithm": "lottewy-fy-reject-v1",
+    "normalization": "nfc-trim-v1",
+    "masking": "strict-v1",
+    "id": "11e8aadb-430b-4fa4-8e54-f109792f7f67",
+    "owner": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
+    "revision": 1,
+    "title": "Arc Testnet entegrasyon testi",
+    "description": "Sentetik test katılımları. Gerçek ödül veya kampanya değildir.",
+    "rules": "Katılım ücretsizdir. Her test satırı eşit şansa sahiptir. Bu testte ödül verilmez.",
+    "winners": 2,
+    "reserves": 1,
+    "entries": [
+      {
+        "id": 1,
+        "label": "T*** K*** B***",
+        "commitment": "0xb217914e01ab3c32ef51d78b0fe4eee4a0b2374b3dd12117b17ac3f9a61efa5e"
+      },
+      {
+        "id": 2,
+        "label": "T*** K*** İ***",
+        "commitment": "0x6629aa1e92b5bdbbc63aadf399c383384879af200376a9a13ae6c932a4343d41"
+      },
+      {
+        "id": 3,
+        "label": "T*** K*** Ü***",
+        "commitment": "0x786f2f14c1e2fd6a38f4a71ae2ed6c35fc09c64573716f68e116cd6308650432"
+      },
+      {
+        "id": 4,
+        "label": "T*** K*** D***",
+        "commitment": "0x6bcd7be5851b5bd315bdc654a352c0996e297feeced1edc2792f53d5acf5a96f"
+      }
+    ]
+  },
+  "commitment": "0xf634685c5a93df276d6160c72e9507e8b0b78870de5443e0502357af822a9427",
+  "created": 1789943417,
+  "review": {
+    "mode": "live",
+    "model": "jev-1.13.0",
+    "policy": "lottewy-content-v1"
+  },
+  "recovery": {
+    "requestId": "5256",
+    "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+    "deadline": "1789943481",
+    "callbackFailed": false,
+    "refundable": false,
+    "refunded": false,
+    "refundCredit": "0",
+    "overpaymentCredit": "0",
+    "feePaid": "80000000000000000",
+    "refundBps": 10000
+  },
+  "evidence": {
+    "word": "0x450efbb664aa28af235be2a2a3c4244d88b362d5e19618c7c9594228ffc0e629",
+    "requestId": "5256",
+    "txHash": "0xda8d1999bb846d4a5f07961eec485b9439e31e0f50efa0f37005a3f017f21b1a",
+    "blockHash": "0xcf42da43a68f8e6662cea48b284446a68e5995d64c2f1b70bdab30ca475ce3a7",
+    "blockNumber": "63158796",
+    "logIndex": 28,
+    "consumer": "0xc79366c5a906f8f644830747a6096e004c4d2297",
+    "coordinator": "0xd20DA0FF9087d053f0291524Eac12abA1ADBd945",
+    "chainId": 5042002,
+    "fulfillmentBlockHash": "0x9f135df343febaab73fbf7d49bd76052ce161f79bad4f6620602f1a807935ee2",
+    "fulfillmentBlockNumber": "63158802",
+    "fulfillmentTxHash": "0x3264e8b42c6b6cbed508fca64d55da3f2fdd913c013438ad4f361819ee6e7933"
+  },
+  "history": [
+    {
+      "revision": 1,
+      "commitment": "0xf634685c5a93df276d6160c72e9507e8b0b78870de5443e0502357af822a9427"
+    }
+  ]
+}
