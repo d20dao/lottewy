@@ -38,6 +38,46 @@ type Link = {
   channelName: string;
   verifiedAt: number;
 };
+type VerificationChallenge = {
+  code: string;
+  nonceRef: string;
+  expires: number;
+  installUrl: string;
+  owner?: string;
+};
+const challengeKey = (owner: string) =>
+  `lottewy:editor:v1:${owner.toLowerCase()}:discord-verification`;
+function savedChallenge(
+  owner: string | undefined,
+): VerificationChallenge | null {
+  if (!owner) return null;
+  try {
+    const value = JSON.parse(
+      sessionStorage.getItem(challengeKey(owner)) || "null",
+    );
+    return value?.owner === owner.toLowerCase() &&
+      typeof value.code === "string" &&
+      typeof value.nonceRef === "string" &&
+      Number.isFinite(value.expires)
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+function DiscordEnvironmentGate({ origin }: { origin: string }) {
+  return (
+    <Empty title="Discord setup is available on testnet.">
+      <p>
+        Continue on testnet to connect your server and run Discord giveaways.
+        You’ll sign in again on testnet.
+      </p>
+      <a className="button lime" href={origin + "/create?mode=discord"}>
+        Continue on testnet <ArrowRight size={16} />
+      </a>
+    </Empty>
+  );
+}
 type Campaign = {
   id: string;
   owner: string;
@@ -113,12 +153,11 @@ export function DiscordCreator(props: Props) {
     [channelsLoading, setChannelsLoading] = useState(false),
     [channelsError, setChannelsError] = useState(""),
     [roleRetry, setRoleRetry] = useState(0),
-    [challenge, setChallenge] = useState<{
-      code: string;
-      nonceRef: string;
-      expires: number;
-      installUrl: string;
-    } | null>(null),
+    [challenge, setChallenge] = useState<VerificationChallenge | null>(() =>
+      savedChallenge(user?.address.toLowerCase()),
+    ),
+    [challengeExpired, setChallengeExpired] = useState(false),
+    [roleSearch, setRoleSearch] = useState(""),
     [error, setError] = useState(""),
     [reviewing, setReviewing] = useState(false),
     [phase, setPhase] = useState(""),
@@ -128,6 +167,24 @@ export function DiscordCreator(props: Props) {
     identity = useRef(owner),
     heading = useRef<HTMLHeadingElement>(null);
   identity.current = owner;
+  useEffect(() => setRoleSearch(""), [owner, form.linkId]);
+  useEffect(() => {
+    if (!owner || form.owner !== owner) return;
+    try {
+      if (challenge?.owner === owner)
+        sessionStorage.setItem(challengeKey(owner), JSON.stringify(challenge));
+      else if (!challenge) sessionStorage.removeItem(challengeKey(owner));
+    } catch {}
+  }, [challenge, owner, form.owner]);
+  useEffect(() => {
+    setChallengeExpired(!!challenge && challenge.expires * 1000 <= Date.now());
+    if (!challenge) return;
+    const timer = setTimeout(
+      () => setChallengeExpired(true),
+      Math.max(0, challenge.expires * 1000 - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [challenge]);
   useEffect(() => {
     let live = true;
     setChannels([]);
@@ -181,7 +238,7 @@ export function DiscordCreator(props: Props) {
   useEffect(() => {
     setForm(initial(owner || "guest"));
     setLinks([]);
-    setChallenge(null);
+    setChallenge(savedChallenge(owner));
     setReviewing(false);
     setToken(null);
     setError("");
@@ -193,7 +250,13 @@ export function DiscordCreator(props: Props) {
       } catch {}
   }, [form, owner]);
   useEffect(() => {
-    if (!owner || !config?.discordConfigured) return;
+    if (
+      !owner ||
+      !config?.discordConfigured ||
+      (config.discordSetupOrigin &&
+        config.discordSetupOrigin !== location.origin)
+    )
+      return;
     let live = true,
       timer: ReturnType<typeof setTimeout>;
     const load = async () => {
@@ -208,6 +271,17 @@ export function DiscordCreator(props: Props) {
         ]);
         if (live) {
           setLinks(rows);
+          if (!challenge && rows.length === 1)
+            setForm((current: any) =>
+              current.linkId
+                ? current
+                : {
+                    ...current,
+                    linkId: rows[0].id,
+                    channelId: "",
+                    roleIds: [],
+                  },
+            );
           if (status?.linkId && rows.some((r) => r.id === status.linkId)) {
             setForm((current: any) => ({
               ...current,
@@ -241,12 +315,14 @@ export function DiscordCreator(props: Props) {
     };
   }, [owner, config?.discordConfigured, challenge?.code]);
   const field = (name: string, value: unknown) => {
+    if (name === "linkId") setChallenge(null);
     setForm((current: any) => ({
       ...current,
       [name]: value,
       ...(name === "linkId"
-        ? { roleIds: [], channelId: "", detailsOpen: false }
+        ? { roleIds: [], channelId: "", detailsOpen: false, limitRoles: false }
         : {}),
+      ...(name === "limitRoles" && !value ? { roleIds: [] } : {}),
     }));
     setError("");
   };
@@ -287,7 +363,8 @@ export function DiscordCreator(props: Props) {
       setError("");
       try {
         const result = await api("/discord/challenge", {});
-        if (identity.current === current) setChallenge(result);
+        if (identity.current === current)
+          setChallenge({ ...result, owner: current });
       } catch (e) {
         if (identity.current === current) setError((e as Error).message);
       }
@@ -326,6 +403,11 @@ export function DiscordCreator(props: Props) {
         setReset((n) => n + 1);
       }
     });
+  if (
+    config?.discordSetupOrigin &&
+    config.discordSetupOrigin !== location.origin
+  )
+    return <DiscordEnvironmentGate origin={config.discordSetupOrigin} />;
   if (!user)
     return (
       <Empty title="Connect a wallet to organize a Discord giveaway">
@@ -358,6 +440,11 @@ export function DiscordCreator(props: Props) {
       </Empty>
     );
   const selected = links.find((link) => link.id === form.linkId);
+  const limitRoles = form.limitRoles ?? !!form.roleIds?.length;
+  const missingRoles =
+    !rolesLoading &&
+    !rolesError &&
+    (form.roleIds || []).some((id: string) => !roles.some((r) => r.id === id));
   return (
     <div className="discord-creator">
       <a className="back" href="/discord">
@@ -369,7 +456,9 @@ export function DiscordCreator(props: Props) {
           <h1 ref={heading} tabIndex={-1}>
             {reviewing
               ? "Review the announcement."
-              : "Let your community join."}
+              : form.detailsOpen
+                ? "Set the giveaway details."
+                : "Let your community join."}
           </h1>
           <p>
             Collect entries in Discord. Start the verifiable draw from your
@@ -388,23 +477,46 @@ export function DiscordCreator(props: Props) {
               className="discord-channel-setup"
               aria-labelledby="discord-channel-heading"
             >
-              <h2 id="discord-channel-heading">1. Verify your server</h2>
-              <p className="muted">
-                Run <code>/verify</code> in your Discord server with the
-                one-time code below. You need Manage Server permission. After
-                verification, choose where the giveaway appears.
-              </p>
+              <h2 id="discord-channel-heading">
+                {links.length ? "Choose your server" : "1. Verify your server"}
+              </h2>
+              {!links.length && (
+                <p className="muted">
+                  Run <code>/verify</code> in your Discord server with the
+                  one-time code below. You need Manage Server permission. After
+                  verification, choose where the giveaway appears.
+                </p>
+              )}
+              {!!links.length && (
+                <>
+                  <label htmlFor="discord-server">Verified server</label>
+                  <select
+                    id="discord-server"
+                    value={form.linkId}
+                    onChange={(e) => field("linkId", e.target.value)}
+                  >
+                    <option value="">Choose a verified server</option>
+                    {links.map((link) => (
+                      <option key={link.id} value={link.id}>
+                        {link.guildName}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               <button
                 type="button"
                 className="button secondary"
                 disabled={busy}
                 onClick={verify}
               >
-                {links.length
-                  ? "Verify another server"
-                  : "Get verification code"}
+                {challengeExpired
+                  ? "Get a new code"
+                  : links.length
+                    ? "Connect another server"
+                    : "Get verification code"}
               </button>
-              {config.discordInstallUrl && (
+              {config.discordInstallUrl && (!links.length || challenge) && (
                 <p className="small muted">
                   Missing the command?{" "}
                   <a
@@ -432,6 +544,7 @@ export function DiscordCreator(props: Props) {
                       type="button"
                       className="button secondary"
                       aria-label="Copy verification command"
+                      disabled={challengeExpired}
                       onClick={() =>
                         run(async () => {
                           await navigator.clipboard.writeText(
@@ -444,30 +557,20 @@ export function DiscordCreator(props: Props) {
                       <Copy size={17} />
                     </button>
                   </div>
-                  <p className="small muted">
-                    Run <code>/verify code:{challenge?.code}</code> in Discord.
-                    Waiting for server verification… Expires{" "}
-                    {challenge ? date(challenge.expires) : ""}.
-                  </p>
+                  {challengeExpired ? (
+                    <p role="status">
+                      This code expired. Get a new code to continue.
+                    </p>
+                  ) : (
+                    <p className="small muted">
+                      Run <code>/verify code:{challenge?.code}</code> in
+                      Discord. Waiting for Discord. This page updates
+                      automatically. Expires{" "}
+                      {challenge ? date(challenge.expires) : ""}.
+                    </p>
+                  )}
                 </div>
               </Collapsible>
-              {!!links.length && (
-                <>
-                  <label htmlFor="discord-server">Verified server</label>
-                  <select
-                    id="discord-server"
-                    value={form.linkId}
-                    onChange={(e) => field("linkId", e.target.value)}
-                  >
-                    <option value="">Choose a verified server</option>
-                    {links.map((link) => (
-                      <option key={link.id} value={link.id}>
-                        {link.guildName}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
               {form.linkId && (
                 <>
                   <h3 className="discord-step-heading">
@@ -515,57 +618,115 @@ export function DiscordCreator(props: Props) {
               )}
               {form.linkId && form.channelId && (
                 <fieldset className="discord-role-filter">
-                  <legend>3. Choose who can join</legend>
-                  <p className="small muted">
-                    No roles selected: anyone with channel access. Otherwise,
-                    members need at least one selected role when joining. Up to
-                    10 roles.
-                  </p>
-                  {rolesLoading ? (
-                    <p role="status">Loading server roles…</p>
-                  ) : rolesError ? (
-                    <div>
-                      <p role="alert">{rolesError}</p>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => setRoleRetry((n) => n + 1)}
-                      >
-                        Retry loading roles
-                      </button>
-                    </div>
+                  <legend>Who can join?</legend>
+                  <label className="discord-role-toggle">
+                    <input
+                      type="checkbox"
+                      checked={limitRoles}
+                      onChange={(e) => field("limitRoles", e.target.checked)}
+                    />{" "}
+                    Limit to specific roles
+                  </label>
+                  {!limitRoles ? (
+                    <p className="small muted">
+                      Anyone with channel access can join.
+                    </p>
                   ) : (
-                    <div className="discord-role-options">
-                      {roles.length ? (
-                        roles.map((role) => (
-                          <label key={role.id}>
-                            <input
-                              type="checkbox"
-                              checked={(form.roleIds || []).includes(role.id)}
-                              disabled={
-                                !(form.roleIds || []).includes(role.id) &&
-                                (form.roleIds || []).length >= 10
-                              }
-                              onChange={(e) =>
-                                field(
-                                  "roleIds",
-                                  e.target.checked
-                                    ? [...(form.roleIds || []), role.id]
-                                    : (form.roleIds || []).filter(
-                                        (id: string) => id !== role.id,
-                                      ),
-                                )
-                              }
-                            />
-                            <span>{role.name}</span>
+                    <>
+                      <p className="small muted">
+                        No roles selected: anyone with channel access.
+                        Otherwise, members need at least one selected role when
+                        joining. Up to 10 roles.
+                      </p>
+                      {roles.length > 10 && (
+                        <>
+                          <label htmlFor="discord-role-search">
+                            Find a role
                           </label>
-                        ))
-                      ) : (
-                        <p className="small muted">
-                          This server has no additional roles.
+                          <input
+                            id="discord-role-search"
+                            value={roleSearch}
+                            onChange={(e) => setRoleSearch(e.target.value)}
+                          />
+                        </>
+                      )}
+                      <p className="small muted">
+                        {(form.roleIds || []).length} of 10 roles selected.
+                      </p>
+                      {missingRoles && (
+                        <p role="alert">
+                          A selected role is no longer available.{" "}
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() =>
+                              field(
+                                "roleIds",
+                                (form.roleIds || []).filter((id: string) =>
+                                  roles.some((r) => r.id === id),
+                                ),
+                              )
+                            }
+                          >
+                            Remove unavailable roles
+                          </button>
                         </p>
                       )}
-                    </div>
+                      {rolesLoading ? (
+                        <p role="status">Loading server roles…</p>
+                      ) : rolesError ? (
+                        <div>
+                          <p role="alert">{rolesError}</p>
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() => setRoleRetry((n) => n + 1)}
+                          >
+                            Retry loading roles
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="discord-role-options">
+                          {roles.length ? (
+                            roles
+                              .filter((role) =>
+                                role.name
+                                  .toLowerCase()
+                                  .includes(roleSearch.toLowerCase()),
+                              )
+                              .map((role) => (
+                                <label key={role.id}>
+                                  <input
+                                    type="checkbox"
+                                    checked={(form.roleIds || []).includes(
+                                      role.id,
+                                    )}
+                                    disabled={
+                                      !(form.roleIds || []).includes(role.id) &&
+                                      (form.roleIds || []).length >= 10
+                                    }
+                                    onChange={(e) =>
+                                      field(
+                                        "roleIds",
+                                        e.target.checked
+                                          ? [...(form.roleIds || []), role.id]
+                                          : (form.roleIds || []).filter(
+                                              (id: string) => id !== role.id,
+                                            ),
+                                      )
+                                    }
+                                  />
+                                  <span>{role.name}</span>
+                                </label>
+                              ))
+                          ) : (
+                            <p className="small muted">
+                              This server has no additional roles.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </fieldset>
               )}
@@ -587,10 +748,18 @@ export function DiscordCreator(props: Props) {
                     disabled={
                       busy ||
                       channelsLoading ||
+                      (limitRoles &&
+                        (rolesLoading ||
+                          !!rolesError ||
+                          missingRoles ||
+                          !form.roleIds?.length)) ||
                       !!channelsError ||
                       !channels.some((c) => c.id === form.channelId)
                     }
-                    onClick={() => field("detailsOpen", true)}
+                    onClick={() => {
+                      field("detailsOpen", true);
+                      requestAnimationFrame(() => heading.current?.focus());
+                    }}
                   >
                     Continue to giveaway details <ArrowRight size={16} />
                   </button>
@@ -621,7 +790,10 @@ export function DiscordCreator(props: Props) {
               <button
                 type="button"
                 className="text-button"
-                onClick={() => field("detailsOpen", false)}
+                onClick={() => {
+                  field("detailsOpen", false);
+                  requestAnimationFrame(() => heading.current?.focus());
+                }}
               >
                 Change server, channel or roles
               </button>
@@ -1037,6 +1209,11 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
           draw has started. The list cannot be changed.
         </p>
       )}
+      {campaign.errorCode === "DISCORD_RATE_LIMITED" && (
+        <p role="status">
+          Discord is temporarily busy. Lottewy will retry automatically.
+        </p>
+      )}
       {recovery}
       {error && (
         <p className="field-error" role="alert">
@@ -1101,6 +1278,11 @@ export function DiscordCampaignList({ user, onLogin, config }: Props) {
       live = false;
     };
   }, [user?.address]);
+  if (
+    config?.discordSetupOrigin &&
+    config.discordSetupOrigin !== location.origin
+  )
+    return <DiscordEnvironmentGate origin={config.discordSetupOrigin} />;
   if (!user)
     return (
       <Empty title="Sign in to see your Discord registrations">

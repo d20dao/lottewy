@@ -27,6 +27,17 @@
   padding: 10px 0;
   min-height: 44px;
 }
+.discord-channel-setup .discord-role-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.discord-role-toggle input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 .discord-role-options input {
   width: 18px;
   height: 18px;

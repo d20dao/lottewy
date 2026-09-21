@@ -315,6 +315,10 @@ export default {
             !!env.DISCORD_APP_ID &&
             !!env.DISCORD_APP_PUBLIC_KEY &&
             !!env.DISCORD_BOT_TOKEN,
+          discordSetupOrigin:
+            env.MODE === "development"
+              ? "https://testnet.lottewy.com"
+              : env.APP_ORIGIN,
           discordInstallUrl: env.DISCORD_APP_ID
             ? `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_APP_ID}&scope=bot%20applications.commands&permissions=84992`
             : null,

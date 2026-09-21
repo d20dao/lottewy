@@ -65,7 +65,7 @@ The `testnet` Wrangler environment targets `testnet.lottewy.com`, a separate rem
 
 After release approval, apply remote migrations with `wrangler d1 migrations apply DB --env testnet --remote`. The V2 binding uses a separate `lottewy-testnet-v2` database. Upload an explicit allowlist of `JEV_API_KEY`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` and the three Discord settings below with `wrangler secret bulk --env testnet`; never upload a complete private `.env`. Deploy with `npm run deploy:testnet`. Allow the hosted domain in the Turnstile widget and WalletConnect project settings. Local D1 data is not automatically copied to the hosted database.
 
-## Discord registration (prepared locally)
+## Discord registration
 
 The site supports collecting equal-chance entries with Discord Join and Leave buttons, then freezing the list for the organizer's usual wallet-driven draw. Creating a registration does not submit an onchain transaction. The closing time is enforced by the database even if the scheduled finalizer runs later. Discord IDs and display names stay in private entry storage; public manifests contain commitments and masked labels. One account per entry does not establish one human per entry.
 
@@ -77,13 +77,15 @@ An organizer signs in with a funded wallet, creates a ten-minute code and runs `
 
 The scheduler closes registrations, snapshots entries and updates announcements. Uncertain message delivery never automatically creates a second announcement: the organizer can link the original message, or a signed Join/Leave interaction can recover its ID. Cancelled registrations remain closed during recovery. Discord delivery failures can delay announcement updates but never extend the entry deadline. `/giveaway id` displays the public result and links to verification; it does not reveal private participant identities.
 
-These changes are not deployed and application commands have not been published. Local automated tests mock Discord; a live identity and end-to-end Discord check remains necessary before release.
+The Discord Worker endpoint and both application commands are enabled on `testnet.lottewy.com`. Discord validated the interaction endpoint, and the signed admin registration operation confirmed both commands through Discord's API. Full server verification, registration and draw interaction still requires an end-to-end check with an authorized Discord member. Local development uses a separate database and directs real Discord setup to testnet; do not generate a local code for the testnet endpoint.
+
+An active allowlisted admin can also register the fixed bundled commands through the existing wallet-signed action API: action type `register-discord-commands`, target `discord_commands`, expected revision `0`, payload `{ "confirm": true }`. This checks bot identity and performs name-based upserts without deleting unrelated commands. The signed action journal makes completed retries idempotent. Bot secrets remain in the Worker.
 
 Organizers can require up to ten server roles. A member needs any one selected role at join time; no selection allows everyone with channel access. The backend uses role IDs from Discord's signed interaction, never browser-provided membership. Leaving remains available if a role is subsequently removed. Roles and eligibility are fixed at publication; there is no continuous role revalidation after joining.
 
 The original announcement is edited as registration closes, the draw starts, and results arrive. Completed announcements show all winners as Discord user references, up to ten alternates, and links to the result, verification dialog and onchain transaction. These references do not ping users or roles. Winner identities are resolved from commitment-checked private openings only in that verified server channel; the public website manifest remains masked. The participant notice discloses winner announcements before joining. Hidden results are removed from the announcement on the next synchronization.
 
-Thirty days after the registration deadline, the scheduled cleanup removes an undrawn registration's entries, private chunks, revisions, reports and draft. It retains signed audit history and a minimal expired campaign tombstone to prevent ID reuse and retry the Discord expiry update. Any recorded start, attempt, chain event or non-draft giveaway excludes the record from this cleanup. Completed results and uncertain transactions are never purged by this rule. Cleanup does not erase historical backups; their retention is managed separately.
+Thirty days after the registration deadline (or an earlier cancellation), the scheduled cleanup removes an undrawn registration's entries, private chunks, revisions, reports and draft. It retains signed audit history and a minimal expired campaign tombstone to prevent ID reuse and retry the Discord expiry update. Any recorded start, attempt, chain event or non-draft giveaway excludes the record from this cleanup. Completed results and uncertain transactions are never purged by this rule. Cleanup does not erase historical backups; their retention is managed separately.
 
 ## Remaining mainnet release work
 
