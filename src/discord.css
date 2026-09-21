@@ -59,6 +59,22 @@
   gap: 44px;
   align-items: start;
 }
+.discord-creator-grid[data-stage="setup"] {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 740px;
+}
+.discord-creator-grid[data-stage="setup"] .discord-channel-setup {
+  position: static;
+}
+.discord-channel-setup > .discord-step-heading {
+  margin-top: 28px;
+}
+.discord-channel-setup > .button.full {
+  margin-top: 28px;
+}
+.discord-verify-instructions code {
+  overflow-wrap: anywhere;
+}
 .discord-channel-setup {
   position: sticky;
   top: 24px;

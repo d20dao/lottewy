@@ -14,6 +14,7 @@ export type DiscordCampaignInput = {
   linkId: string;
   endsAt: number;
   roleIds?: string[];
+  channelId?: string;
 };
 export function normalizeDiscordCampaign(
   input: DiscordCampaignInput,
@@ -28,6 +29,10 @@ export function normalizeDiscordCampaign(
     return result;
   };
   assert(input && typeof input === "object", "Campaign details are required");
+  assert(
+    input.channelId === undefined || /^\d{17,20}$/.test(input.channelId),
+    "Choose a giveaway channel",
+  );
   assert(
     input.roleIds === undefined ||
       (Array.isArray(input.roleIds) &&
@@ -75,6 +80,7 @@ export function normalizeDiscordCampaign(
     listed: input.listed,
     linkId: input.linkId.toLowerCase(),
     endsAt: input.endsAt,
+    ...(input.channelId ? { channelId: input.channelId } : {}),
     ...(input.roleIds?.length
       ? { roleIds: [...new Set(input.roleIds)].sort() }
       : {}),

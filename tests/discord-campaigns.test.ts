@@ -8,6 +8,8 @@ import {
   processDiscordCampaigns,
   publicCampaign,
   verifyChannel,
+  canPostInChannel,
+  discordLinks,
 } from "../worker/discord-campaigns";
 import { loadJson } from "../worker/storage";
 import { hash } from "../shared/core";
@@ -61,10 +63,16 @@ beforeEach(() => {
           id: guild,
           name: "Test community",
           owner_id: hasManager ? verifier : "999999999999999999",
-          roles: [{ id: guild, permissions: "0" }],
+          roles: [
+            { id: guild, permissions: "84992" },
+            { id: "777777777777777777", permissions: "32" },
+          ],
         });
       if (path.endsWith("/members/" + verifier))
         return Response.json({ roles: [] });
+      if (path.endsWith("/members/888888888888888888"))
+        return Response.json({ roles: ["777777777777777777"] });
+      if (path.endsWith("/members/" + app)) return Response.json({ roles: [] });
       if (path.endsWith("/channels/" + channel))
         return Response.json({
           id: channel,
@@ -84,6 +92,80 @@ beforeEach(() => {
       throw new Error("Unexpected Discord route");
     }),
   );
+});
+it("filters channels using effective bot overwrites, not just server permissions", () => {
+  const g = {
+      id: guild,
+      roles: [
+        { id: guild, permissions: "84992" },
+        { id: "role", permissions: "0" },
+      ],
+    },
+    member = { roles: ["role"] },
+    c = { guild_id: guild, type: 0, permission_overwrites: [] as any[] };
+  expect(canPostInChannel(g, member, app, c)).toBe(true);
+  c.permission_overwrites = [{ id: guild, type: 0, deny: "2048", allow: "0" }];
+  expect(canPostInChannel(g, member, app, c)).toBe(false);
+  c.permission_overwrites.push({
+    id: "role",
+    type: 0,
+    deny: "0",
+    allow: "2048",
+  });
+  expect(canPostInChannel(g, member, app, c)).toBe(true);
+  c.permission_overwrites.push({ id: app, type: 1, deny: "1024", allow: "0" });
+  expect(canPostInChannel(g, member, app, c)).toBe(false);
+  expect(canPostInChannel(g, member, app, { ...c, guild_id: "other" })).toBe(
+    false,
+  );
+});
+it("lets independent authorized wallets link the same server without sharing their links or codes", async () => {
+  const secondOwner = "0x0000000000000000000000000000000000000002";
+  db.sqlite
+    .prepare("INSERT INTO users(address,created) VALUES (?,?)")
+    .run(secondOwner, clock);
+  const first = await linkChallenge(env, owner),
+    second = await linkChallenge(env, secondOwner);
+  const signedMember = {
+    ...interaction(),
+    member: { permissions: "32", user: { id: verifier } },
+  };
+  await verifyChannel(env, signedMember, first.code);
+  await verifyChannel(
+    env,
+    {
+      ...signedMember,
+      member: { permissions: "32", user: { id: "888888888888888888" } },
+    },
+    second.code,
+  );
+  const firstLinks = await discordLinks(env, owner),
+    secondLinks = await discordLinks(env, secondOwner);
+  expect(firstLinks).toHaveLength(1);
+  expect(secondLinks).toHaveLength(1);
+  expect(firstLinks[0].guildId).toBe(secondLinks[0].guildId);
+  expect(firstLinks[0].id).not.toBe(secondLinks[0].id);
+  await expect(verifyChannel(env, signedMember, first.code)).rejects.toThrow(
+    "already used",
+  );
+  await expect(
+    campaignCreate(
+      env,
+      secondOwner,
+      crypto.randomUUID(),
+      {
+        title: "Community event",
+        description: "",
+        rules: "Free community participation.",
+        winners: 1,
+        reserves: 0,
+        listed: false,
+        linkId: firstLinks[0].id,
+        endsAt: clock + 300,
+      },
+      {},
+    ),
+  ).rejects.toThrow("Verify");
 });
 afterEach(() => {
   vi.unstubAllGlobals();

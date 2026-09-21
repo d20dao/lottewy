@@ -65,9 +65,10 @@ test("configured local Worker exposes installation and channel setup on the actu
     page.getByRole("link", { name: "Add bot to Discord" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Verify a server channel" }),
+    page.getByRole("button", { name: "Get verification code" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Giveaway title")).toBeVisible();
+  await expect(page.getByLabel("Giveaway title")).toHaveCount(0);
+  await expect(page.getByLabel("Giveaway channel")).toHaveCount(0);
   await expect(
     page.getByText("Discord registration is not enabled yet"),
   ).toHaveCount(0);
@@ -81,6 +82,7 @@ test("configured local Worker exposes installation and channel setup on the actu
     await page.screenshot({
       path: `artifacts/discord-live-config-${width}.png`,
       fullPage: true,
+      animations: "disabled",
     });
   }
 });
@@ -97,6 +99,9 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
   </script></body></html>`,
   );
   const linkId = "0x" + "ab".repeat(32);
+  await page.route("**/api/discord/links/*/channels", (route) =>
+    route.fulfill({ json: [{ id: "345678901234567890", name: "giveaways" }] }),
+  );
   await page.route("**/api/discord/links/*/roles", (route) =>
     route.fulfill({
       json: [
@@ -138,13 +143,16 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
   await expect(
     page.getByRole("link", { name: "Add bot to Discord" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Verify another channel" }).click();
+  await page.getByRole("button", { name: "Verify another server" }).click();
   await expect(page.getByLabel("One-time code")).toHaveValue(
     "12345678-abcd-abcd-abcd-123456789012",
   );
   await page
-    .getByLabel("Verified channel", { exact: true })
+    .getByLabel("Verified server", { exact: true })
     .selectOption(linkId);
+  await page
+    .getByLabel("Giveaway channel", { exact: true })
+    .selectOption("345678901234567890");
   await page.getByLabel("Contributor", { exact: true }).check();
   expect(
     await page.evaluate(
@@ -155,6 +163,9 @@ test("Discord registration preserves a failed draft and stable ID, with usable m
     path: "artifacts/discord-role-form-390.png",
     fullPage: true,
   });
+  await page
+    .getByRole("button", { name: "Continue to giveaway details" })
+    .click();
   await page.getByLabel("Giveaway title").fill("Community giveaway");
   await page
     .getByLabel("Entry and prize rules")

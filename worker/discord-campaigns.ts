@@ -94,12 +94,15 @@ export async function discordLinks(env: CampaignEnv, owner: string) {
   )
     .bind(owner)
     .all<Link>();
-  return rows.results.map(({ id, guild_name, channel_name, verified_at }) => ({
-    id,
-    guildName: guild_name,
-    channelName: channel_name,
-    verifiedAt: verified_at,
-  }));
+  return rows.results.map(
+    ({ id, guild_id, guild_name, channel_name, verified_at }) => ({
+      id,
+      guildId: guild_id,
+      guildName: guild_name,
+      channelName: channel_name,
+      verifiedAt: verified_at,
+    }),
+  );
 }
 export async function discordRoles(
   env: CampaignEnv,
@@ -119,6 +122,71 @@ export async function discordRoles(
       id: String(r.id),
       name: String(r.name).slice(0, 100),
     })) as { id: string; name: string }[];
+}
+export function canPostInChannel(
+  guild: any,
+  member: any,
+  botId: string,
+  channel: any,
+) {
+  if (![0, 5].includes(channel.type) || channel.guild_id !== guild.id)
+    return false;
+  const roles = new Set(member.roles || []);
+  let permissions = BigInt(0);
+  for (const role of guild.roles || [])
+    if (role.id === guild.id || roles.has(role.id))
+      permissions |= BigInt(role.permissions || "0");
+  if (guild.owner_id === botId || (permissions & 8n) !== 0n) return true;
+  const overwrites = channel.permission_overwrites || [],
+    everyone = overwrites.find((o: any) => o.type === 0 && o.id === guild.id);
+  if (everyone)
+    permissions =
+      (permissions & ~BigInt(everyone.deny || "0")) |
+      BigInt(everyone.allow || "0");
+  let deny = 0n,
+    allow = 0n;
+  for (const o of overwrites)
+    if (o.type === 0 && o.id !== guild.id && roles.has(o.id)) {
+      deny |= BigInt(o.deny || "0");
+      allow |= BigInt(o.allow || "0");
+    }
+  permissions = (permissions & ~deny) | allow;
+  const own = overwrites.find((o: any) => o.type === 1 && o.id === botId);
+  if (own)
+    permissions =
+      (permissions & ~BigInt(own.deny || "0")) | BigInt(own.allow || "0");
+  return (permissions & 84992n) === 84992n;
+}
+export async function discordChannels(
+  env: CampaignEnv,
+  owner: string,
+  linkId: string,
+) {
+  const link = await env.DB.prepare(
+    "SELECT * FROM discord_links WHERE id=? AND owner=?",
+  )
+    .bind(linkId, owner)
+    .first<Link>();
+  assert(link, "Verify your server first");
+  const botId = await botIdentity(env);
+  const [guild, member, verifier, channels] = await Promise.all([
+    discordApi(env, "/guilds/" + link.guild_id),
+    discordApi(env, `/guilds/${link.guild_id}/members/${botId}`),
+    discordApi(env, `/guilds/${link.guild_id}/members/${link.verifier_id}`),
+    discordApi(env, `/guilds/${link.guild_id}/channels`),
+  ]);
+  const roles = new Set([link.guild_id, ...(verifier.roles || [])]),
+    permissions = (guild.roles || [])
+      .filter((r: any) => roles.has(r.id))
+      .reduce((p: bigint, r: any) => p | BigInt(r.permissions || "0"), 0n);
+  assert(
+    guild.owner_id === link.verifier_id || (permissions & 40n) !== 0n,
+    "Verify the server again with Manage Server permission",
+  );
+  return channels
+    .filter((c: any) => canPostInChannel(guild, member, botId, c))
+    .sort((a: any, b: any) => a.position - b.position)
+    .map((c: any) => ({ id: String(c.id), name: String(c.name) }));
 }
 export async function linkChallenge(env: CampaignEnv, owner: string) {
   assert(
@@ -173,19 +241,8 @@ export async function verifyChannel(
     .first<{ address: string }>();
   assert(nonce, "This verification code expired or was already used");
   await botIdentity(env);
-  const [guild, channel] = await Promise.all([
-    discordApi(env, "/guilds/" + interaction.guild_id),
-    discordApi(env, "/channels/" + interaction.channel_id),
-  ]);
-  assert(
-    channel.guild_id === interaction.guild_id && [0, 5].includes(channel.type),
-    "Choose a server text or announcement channel",
-  );
-  const id = hash([
-    nonce.address,
-    interaction.guild_id,
-    interaction.channel_id,
-  ]);
+  const guild = await discordApi(env, "/guilds/" + interaction.guild_id);
+  const id = hash([nonce.address, interaction.guild_id]);
   await env.DB.batch([
     env.DB.prepare(
       "UPDATE nonces SET consumed=1,message=? WHERE nonce=? AND purpose='discord-link' AND consumed=0 AND expires>unixepoch()",
@@ -193,7 +250,7 @@ export async function verifyChannel(
     guard(env.DB),
     env.DB.prepare(
       `INSERT INTO discord_links(id,owner,guild_id,channel_id,verifier_id,guild_name,channel_name,verified_at) VALUES(?,?,?,?,?,?,?,unixepoch())
-    ON CONFLICT(id) DO UPDATE SET verifier_id=excluded.verifier_id,guild_name=excluded.guild_name,channel_name=excluded.channel_name,verified_at=excluded.verified_at`,
+    ON CONFLICT(id) DO UPDATE SET verifier_id=excluded.verifier_id,guild_name=excluded.guild_name,channel_id=excluded.channel_id,channel_name=excluded.channel_name,verified_at=excluded.verified_at`,
     ).bind(
       id,
       nonce.address,
@@ -201,17 +258,18 @@ export async function verifyChannel(
       interaction.channel_id,
       interaction.member.user.id,
       String(guild.name).slice(0, 100),
-      String(channel.name).slice(0, 100),
+      "",
     ),
     env.DB.prepare("DELETE FROM atomic_guard"),
   ]);
-  return `This server channel is verified for wallet ${nonce.address.slice(0, 6)}…${nonce.address.slice(-4)}. Return to Lottewy to prepare the giveaway.`;
+  return `This server is verified for wallet ${nonce.address.slice(0, 6)}…${nonce.address.slice(-4)}. Return to Lottewy to choose the giveaway channel and roles.`;
 }
 async function currentLinkAccess(
   env: CampaignEnv,
   owner: string,
   linkId: string,
   requiredRoles: string[] = [],
+  channelId?: string,
 ) {
   const link = await env.DB.prepare(
     "SELECT * FROM discord_links WHERE id=? AND owner=?",
@@ -219,11 +277,11 @@ async function currentLinkAccess(
     .bind(linkId, owner)
     .first<Link>();
   assert(link, "Verify the intended Discord server channel first");
-  await botIdentity(env);
+  const botId = await botIdentity(env);
   const [guild, member, channel] = await Promise.all([
     discordApi(env, "/guilds/" + link.guild_id),
     discordApi(env, `/guilds/${link.guild_id}/members/${link.verifier_id}`),
-    discordApi(env, "/channels/" + link.channel_id),
+    discordApi(env, "/channels/" + (channelId || link.channel_id)),
   ]);
   assert(
     channel.guild_id === link.guild_id && [0, 5].includes(channel.type),
@@ -251,7 +309,15 @@ async function currentLinkAccess(
     ),
     "A selected role is no longer available in this server",
   );
-  return link;
+  const botMember = await discordApi(
+    env,
+    `/guilds/${link.guild_id}/members/${botId}`,
+  );
+  assert(
+    canPostInChannel(guild, botMember, botId, channel),
+    "The bot cannot post in this channel. Allow View Channel, Send Messages, Embed Links and Read Message History.",
+  );
+  return { ...link, channel_id: channelId || link.channel_id };
 }
 export async function campaignCreate(
   env: CampaignEnv,
@@ -267,7 +333,13 @@ export async function campaignCreate(
     d.endsAt >= now + 120 && d.endsAt <= now + 30 * 86400,
     "Registration must close between 2 minutes and 30 days from now",
   );
-  const link = await currentLinkAccess(env, owner, d.linkId, d.roleIds);
+  const link = await currentLinkAccess(
+    env,
+    owner,
+    d.linkId,
+    d.roleIds,
+    d.channelId,
+  );
   const row: Campaign = {
     id,
     owner,
@@ -590,6 +662,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
           row.owner,
           (JSON.parse(row.input_json) as DiscordCampaignInput).linkId,
           (JSON.parse(row.input_json) as DiscordCampaignInput).roleIds,
+          row.channel_id,
         );
         const started = await env.DB.prepare(
           "UPDATE discord_campaigns SET publish_started_at=unixepoch() WHERE id=? AND status='publishing' AND publish_started_at IS NULL AND ends_at>unixepoch() AND lease_token=? AND lease_until>unixepoch() AND EXISTS(SELECT 1 FROM users WHERE address=discord_campaigns.owner AND suspended=0)",

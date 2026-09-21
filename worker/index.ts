@@ -30,6 +30,7 @@ import { discordInteraction, type DiscordEnv } from "./discord";
 import {
   discordLinks,
   discordRoles,
+  discordChannels,
   linkChallenge,
   campaignCreate,
   campaignRow,
@@ -369,6 +370,12 @@ export default {
         });
       }
       const user = await session(req, env);
+      const channelsMatch =
+        /^\/api\/discord\/links\/(0x[\da-f]{64})\/channels$/i.exec(path);
+      if (channelsMatch && req.method === "GET") {
+        assert(user && !user.suspended, "Please sign in with an active wallet");
+        return json(await discordChannels(env, user.address, channelsMatch[1]));
+      }
       const rolesMatch =
         /^\/api\/discord\/links\/(0x[\da-f]{64})\/roles$/i.exec(path);
       if (rolesMatch && req.method === "GET") {

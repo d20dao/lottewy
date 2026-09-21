@@ -91,6 +91,8 @@ const initial = (owner: string) => {
     listed: false,
     linkId: "",
     roleIds: [],
+    channelId: "",
+    detailsOpen: false,
   };
 };
 const date = (seconds: number) =>
@@ -106,6 +108,9 @@ export function DiscordCreator(props: Props) {
     [roles, setRoles] = useState<{ id: string; name: string }[]>([]),
     [rolesError, setRolesError] = useState(""),
     [rolesLoading, setRolesLoading] = useState(false),
+    [channels, setChannels] = useState<{ id: string; name: string }[]>([]),
+    [channelsLoading, setChannelsLoading] = useState(false),
+    [channelsError, setChannelsError] = useState(""),
     [roleRetry, setRoleRetry] = useState(0),
     [challenge, setChallenge] = useState<{
       code: string;
@@ -122,6 +127,31 @@ export function DiscordCreator(props: Props) {
     identity = useRef(owner),
     heading = useRef<HTMLHeadingElement>(null);
   identity.current = owner;
+  useEffect(() => {
+    let live = true;
+    setChannels([]);
+    setChannelsError("");
+    if (!owner || !form.linkId) {
+      setChannelsLoading(false);
+      return;
+    }
+    setChannelsLoading(true);
+    api<{ id: string; name: string }[]>(
+      "/discord/links/" + form.linkId + "/channels",
+    )
+      .then((rows) => {
+        if (live) setChannels(rows);
+      })
+      .catch((e) => {
+        if (live) setChannelsError(e.message);
+      })
+      .finally(() => {
+        if (live) setChannelsLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [owner, form.linkId, roleRetry]);
   useEffect(() => {
     let live = true;
     setRoles([]);
@@ -182,9 +212,12 @@ export function DiscordCreator(props: Props) {
               ...current,
               linkId: status.linkId,
               roleIds: current.linkId === status.linkId ? current.roleIds : [],
+              channelId:
+                current.linkId === status.linkId ? current.channelId : "",
+              detailsOpen: false,
             }));
             setChallenge(null);
-            notify("Discord channel verified.");
+            notify("Server verified. Choose the giveaway channel.");
           }
         }
       } catch (e) {
@@ -195,16 +228,24 @@ export function DiscordCreator(props: Props) {
       }
     };
     void load();
+    const focus = () => {
+      clearTimeout(timer);
+      void load();
+    };
+    window.addEventListener("focus", focus);
     return () => {
       live = false;
       clearTimeout(timer);
+      window.removeEventListener("focus", focus);
     };
   }, [owner, config?.discordConfigured, challenge?.code]);
   const field = (name: string, value: unknown) => {
     setForm((current: any) => ({
       ...current,
       [name]: value,
-      ...(name === "linkId" ? { roleIds: [] } : {}),
+      ...(name === "linkId"
+        ? { roleIds: [], channelId: "", detailsOpen: false }
+        : {}),
     }));
     setError("");
   };
@@ -219,6 +260,7 @@ export function DiscordCreator(props: Props) {
       linkId: form.linkId,
       endsAt: Math.floor(new Date(form.ends).getTime() / 1000),
       roleIds: form.roleIds || [],
+      channelId: form.channelId,
     });
     const now = Math.floor(Date.now() / 1000);
     if (d.endsAt < now + 120 || d.endsAt > now + 30 * 86400)
@@ -335,250 +377,344 @@ export function DiscordCreator(props: Props) {
         </div>
       </div>
       {!reviewing ? (
-        <form onSubmit={review} className="discord-creator-grid">
-          <section
-            className="discord-channel-setup"
-            aria-labelledby="discord-channel-heading"
-          >
-            <h2 id="discord-channel-heading">Connect your Discord server</h2>
-            <div className="discord-install-step">
-              <h3>1. Add Lottewy to your server</h3>
-              <p className="small muted">
-                Choose your server on Discord and allow the bot to send messages
-                in your giveaway channel. Already installed? Continue with
-                channel verification below.
+        <form
+          onSubmit={review}
+          className="discord-creator-grid"
+          data-stage={form.detailsOpen ? "details" : "setup"}
+        >
+          {!form.detailsOpen && (
+            <section
+              className="discord-channel-setup"
+              aria-labelledby="discord-channel-heading"
+            >
+              <h2 id="discord-channel-heading">1. Verify your server</h2>
+              <p className="muted">
+                Run <code>/verify</code> in your Discord server with the
+                one-time code below. You need Manage Server permission. After
+                verification, choose where the giveaway appears.
               </p>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy}
+                onClick={verify}
+              >
+                {links.length
+                  ? "Verify another server"
+                  : "Get verification code"}
+              </button>
               {config.discordInstallUrl && (
-                <a
-                  className="button secondary"
-                  href={config.discordInstallUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Add bot to Discord <ExternalLink size={16} />
-                </a>
-              )}
-            </div>
-            <h3 className="discord-step-heading">
-              2. Verify your giveaway channel
-            </h3>
-            <p className="muted">
-              Choose where the bot posts the announcement. Members need access
-              to this channel and must meet any role requirement below.
-            </p>
-            <label htmlFor="discord-channel">Verified channel</label>
-            <select
-              id="discord-channel"
-              value={form.linkId}
-              onChange={(e) => field("linkId", e.target.value)}
-              required
-            >
-              <option value="">Choose a verified channel</option>
-              {links.map((link) => (
-                <option key={link.id} value={link.id}>
-                  {link.guildName} / #{link.channelName}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="button secondary"
-              disabled={busy}
-              onClick={verify}
-            >
-              {links.length
-                ? "Verify another channel"
-                : "Verify a server channel"}
-            </button>
-            <Collapsible open={!!challenge}>
-              <div className="discord-verify-instructions">
-                <h3>Verify from Discord</h3>
-                <p>
-                  Run <code>/lottewy-verify</code> in the channel where the
-                  giveaway should appear, then enter this code. You need Manage
-                  Server permission.
-                </p>
-                <label htmlFor="discord-verification-code">One-time code</label>
-                <div className="discord-code">
-                  <input
-                    id="discord-verification-code"
-                    value={challenge?.code || ""}
-                    readOnly
-                  />
-                  <button
-                    type="button"
-                    className="button secondary"
-                    aria-label="Copy verification code"
-                    onClick={() =>
-                      run(async () => {
-                        await navigator.clipboard.writeText(challenge!.code);
-                        notify("Verification code copied.");
-                      })
-                    }
+                <p className="small muted">
+                  Missing the command?{" "}
+                  <a
+                    href={config.discordInstallUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
-                    <Copy size={17} />
-                  </button>
-                </div>
-                <p className="small muted">
-                  Links this channel to wallet {user.address.slice(0, 6)}…
-                  {user.address.slice(-4)}. Expires{" "}
-                  {challenge ? date(challenge.expires) : ""}.
+                    Add bot to Discord <ExternalLink size={14} />
+                  </a>
+                  , then return here.
                 </p>
-              </div>
-            </Collapsible>
-            {form.linkId && (
-              <fieldset className="discord-role-filter">
-                <legend>3. Choose who can join</legend>
-                <p className="small muted">
-                  No roles selected: anyone with channel access. Otherwise,
-                  members need at least one selected role when joining. Up to 10
-                  roles.
-                </p>
-                {rolesLoading ? (
-                  <p role="status">Loading server roles…</p>
-                ) : rolesError ? (
-                  <div>
-                    <p role="alert">{rolesError}</p>
+              )}
+              <Collapsible open={!!challenge}>
+                <div className="discord-verify-instructions">
+                  <label htmlFor="discord-verification-code">
+                    One-time code
+                  </label>
+                  <div className="discord-code">
+                    <input
+                      id="discord-verification-code"
+                      value={challenge?.code || ""}
+                      readOnly
+                    />
                     <button
                       type="button"
-                      className="text-button"
-                      onClick={() => setRoleRetry((n) => n + 1)}
+                      className="button secondary"
+                      aria-label="Copy verification command"
+                      onClick={() =>
+                        run(async () => {
+                          await navigator.clipboard.writeText(
+                            "/verify code:" + challenge!.code,
+                          );
+                          notify("Verification command copied.");
+                        })
+                      }
                     >
-                      Retry loading roles
+                      <Copy size={17} />
                     </button>
                   </div>
-                ) : (
-                  <div className="discord-role-options">
-                    {roles.length ? (
-                      roles.map((role) => (
-                        <label key={role.id}>
-                          <input
-                            type="checkbox"
-                            checked={(form.roleIds || []).includes(role.id)}
-                            disabled={
-                              !(form.roleIds || []).includes(role.id) &&
-                              (form.roleIds || []).length >= 10
-                            }
-                            onChange={(e) =>
-                              field(
-                                "roleIds",
-                                e.target.checked
-                                  ? [...(form.roleIds || []), role.id]
-                                  : (form.roleIds || []).filter(
-                                      (id: string) => id !== role.id,
-                                    ),
-                              )
-                            }
-                          />
-                          <span>{role.name}</span>
-                        </label>
-                      ))
-                    ) : (
-                      <p className="small muted">
-                        This server has no additional roles.
-                      </p>
-                    )}
+                  <p className="small muted">
+                    Run <code>/verify code:{challenge?.code}</code> in Discord.
+                    Waiting for server verification… Expires{" "}
+                    {challenge ? date(challenge.expires) : ""}.
+                  </p>
+                </div>
+              </Collapsible>
+              {!!links.length && (
+                <>
+                  <label htmlFor="discord-server">Verified server</label>
+                  <select
+                    id="discord-server"
+                    value={form.linkId}
+                    onChange={(e) => field("linkId", e.target.value)}
+                  >
+                    <option value="">Choose a verified server</option>
+                    {links.map((link) => (
+                      <option key={link.id} value={link.id}>
+                        {link.guildName}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              {form.linkId && (
+                <>
+                  <h3 className="discord-step-heading">
+                    2. Choose the giveaway channel
+                  </h3>
+                  <p className="small muted">
+                    Only channels where the bot can view, send messages, embed
+                    links and read message history are shown.
+                  </p>
+                  {channelsLoading ? (
+                    <p role="status">Checking channel access…</p>
+                  ) : channelsError ? (
+                    <p role="alert">{channelsError}</p>
+                  ) : channels.length ? (
+                    <>
+                      <label htmlFor="discord-channel">Giveaway channel</label>
+                      <select
+                        id="discord-channel"
+                        value={form.channelId || ""}
+                        onChange={(e) => field("channelId", e.target.value)}
+                      >
+                        <option value="">Choose a channel</option>
+                        {channels.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            #{c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <p role="status">
+                      No accessible channels. Update the bot’s channel
+                      permissions in Discord, then refresh.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={channelsLoading}
+                    onClick={() => setRoleRetry((n) => n + 1)}
+                  >
+                    Refresh channel access
+                  </button>
+                </>
+              )}
+              {form.linkId && form.channelId && (
+                <fieldset className="discord-role-filter">
+                  <legend>3. Choose who can join</legend>
+                  <p className="small muted">
+                    No roles selected: anyone with channel access. Otherwise,
+                    members need at least one selected role when joining. Up to
+                    10 roles.
+                  </p>
+                  {rolesLoading ? (
+                    <p role="status">Loading server roles…</p>
+                  ) : rolesError ? (
+                    <div>
+                      <p role="alert">{rolesError}</p>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => setRoleRetry((n) => n + 1)}
+                      >
+                        Retry loading roles
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="discord-role-options">
+                      {roles.length ? (
+                        roles.map((role) => (
+                          <label key={role.id}>
+                            <input
+                              type="checkbox"
+                              checked={(form.roleIds || []).includes(role.id)}
+                              disabled={
+                                !(form.roleIds || []).includes(role.id) &&
+                                (form.roleIds || []).length >= 10
+                              }
+                              onChange={(e) =>
+                                field(
+                                  "roleIds",
+                                  e.target.checked
+                                    ? [...(form.roleIds || []), role.id]
+                                    : (form.roleIds || []).filter(
+                                        (id: string) => id !== role.id,
+                                      ),
+                                )
+                              }
+                            />
+                            <span>{role.name}</span>
+                          </label>
+                        ))
+                      ) : (
+                        <p className="small muted">
+                          This server has no additional roles.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </fieldset>
+              )}
+              {form.channelId && (
+                <>
+                  <div className="discord-flow-note">
+                    <Users size={20} />
+                    <p>
+                      One entry per Discord account. Members can join or leave
+                      until the deadline. Afterwards, the list and rules are
+                      fixed. Winners are announced in the same Discord message.
+                      Undrawn registrations are cleaned up 30 days after
+                      closing.
+                    </p>
                   </div>
-                )}
-              </fieldset>
-            )}
-            <div className="discord-flow-note">
-              <Users size={20} />
+                  <button
+                    type="button"
+                    className="button lime full"
+                    disabled={
+                      busy ||
+                      channelsLoading ||
+                      !!channelsError ||
+                      !channels.some((c) => c.id === form.channelId)
+                    }
+                    onClick={() => field("detailsOpen", true)}
+                  >
+                    Continue to giveaway details <ArrowRight size={16} />
+                  </button>
+                </>
+              )}
+            </section>
+          )}
+          {form.detailsOpen && (
+            <section className="discord-channel-setup">
+              <h2>
+                <Check size={20} /> Discord setup complete
+              </h2>
               <p>
-                One entry per Discord account. Members can join or leave until
-                the deadline. Afterwards, the list and rules are fixed. Winners
-                are announced in the same Discord message. Undrawn registrations
-                are cleaned up 30 days after closing.
+                {selected?.guildName} / #
+                {channels.find((c) => c.id === form.channelId)?.name ||
+                  form.channelId}
               </p>
-            </div>
-          </section>
-          <section className="discord-details" aria-label="Giveaway details">
-            <label htmlFor="discord-title">Giveaway title</label>
-            <input
-              id="discord-title"
-              value={form.title}
-              minLength={3}
-              maxLength={120}
-              required
-              onChange={(e) => field("title", e.target.value)}
-            />
-            <label htmlFor="discord-description">
-              Description <span className="muted">(optional)</span>
-            </label>
-            <textarea
-              id="discord-description"
-              value={form.description}
-              maxLength={4000}
-              rows={3}
-              onChange={(e) => field("description", e.target.value)}
-            />
-            <label htmlFor="discord-rules">Entry and prize rules</label>
-            <textarea
-              id="discord-rules"
-              value={form.rules}
-              minLength={5}
-              maxLength={4000}
-              rows={5}
-              required
-              onChange={(e) => field("rules", e.target.value)}
-            />
-            <div className="discord-counts">
-              <div>
-                <label htmlFor="discord-winners">Winners</label>
-                <input
-                  id="discord-winners"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={form.winners}
-                  required
-                  onChange={(e) => field("winners", e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="discord-alternates">Alternates</label>
-                <input
-                  id="discord-alternates"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={form.reserves}
-                  required
-                  onChange={(e) => field("reserves", e.target.value)}
-                />
-              </div>
-            </div>
-            <label htmlFor="discord-ends">
-              Registration closes{" "}
-              <span className="muted">(your local time)</span>
-            </label>
-            <input
-              id="discord-ends"
-              type="datetime-local"
-              value={form.ends}
-              required
-              onChange={(e) => field("ends", e.target.value)}
-            />
-            <label className="discord-listing">
+              <p className="small muted">
+                {form.roleIds?.length
+                  ? form.roleIds
+                      .map(
+                        (id: string) =>
+                          roles.find((r) => r.id === id)?.name || id,
+                      )
+                      .join(" or ")
+                  : "Anyone with channel access"}
+              </p>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => field("detailsOpen", false)}
+              >
+                Change server, channel or roles
+              </button>
+            </section>
+          )}
+          {form.detailsOpen && (
+            <section className="discord-details" aria-label="Giveaway details">
+              <label htmlFor="discord-title">Giveaway title</label>
               <input
-                type="checkbox"
-                checked={form.listed}
-                onChange={(e) => field("listed", e.target.checked)}
-              />{" "}
-              List the final giveaway in Explorer
-            </label>
-            <p className="small muted">
-              Discord entries have equal chances. If fewer than{" "}
-              {Math.max(
-                2,
-                Number(form.winners || 0) + Number(form.reserves || 0),
-              )}{" "}
-              members join, the draw cannot start with these counts.
-            </p>
-            <button className="button lime full" disabled={busy}>
-              Review registration <ArrowRight size={17} />
-            </button>
-          </section>
+                id="discord-title"
+                value={form.title}
+                minLength={3}
+                maxLength={120}
+                required
+                onChange={(e) => field("title", e.target.value)}
+              />
+              <label htmlFor="discord-description">
+                Description <span className="muted">(optional)</span>
+              </label>
+              <textarea
+                id="discord-description"
+                value={form.description}
+                maxLength={4000}
+                rows={3}
+                onChange={(e) => field("description", e.target.value)}
+              />
+              <label htmlFor="discord-rules">Entry and prize rules</label>
+              <textarea
+                id="discord-rules"
+                value={form.rules}
+                minLength={5}
+                maxLength={4000}
+                rows={5}
+                required
+                onChange={(e) => field("rules", e.target.value)}
+              />
+              <div className="discord-counts">
+                <div>
+                  <label htmlFor="discord-winners">Winners</label>
+                  <input
+                    id="discord-winners"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={form.winners}
+                    required
+                    onChange={(e) => field("winners", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="discord-alternates">Alternates</label>
+                  <input
+                    id="discord-alternates"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.reserves}
+                    required
+                    onChange={(e) => field("reserves", e.target.value)}
+                  />
+                </div>
+              </div>
+              <label htmlFor="discord-ends">
+                Registration closes{" "}
+                <span className="muted">(your local time)</span>
+              </label>
+              <input
+                id="discord-ends"
+                type="datetime-local"
+                value={form.ends}
+                required
+                onChange={(e) => field("ends", e.target.value)}
+              />
+              <label className="discord-listing">
+                <input
+                  type="checkbox"
+                  checked={form.listed}
+                  onChange={(e) => field("listed", e.target.checked)}
+                />{" "}
+                List the final giveaway in Explorer
+              </label>
+              <p className="small muted">
+                Discord entries have equal chances. If fewer than{" "}
+                {Math.max(
+                  2,
+                  Number(form.winners || 0) + Number(form.reserves || 0),
+                )}{" "}
+                members join, the draw cannot start with these counts.
+              </p>
+              <button className="button lime full" disabled={busy}>
+                Review registration <ArrowRight size={17} />
+              </button>
+            </section>
+          )}
         </form>
       ) : (
         <section className="discord-review">

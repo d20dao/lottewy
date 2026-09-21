@@ -423,10 +423,7 @@ export async function discordInteraction(
       page <= 20
     )
       target = { id: id.toLowerCase(), page };
-  } else if (
-    interaction.type === 2 &&
-    interaction.data?.name === "lottewy-verify"
-  ) {
+  } else if (interaction.type === 2 && interaction.data?.name === "verify") {
     const code = (
       Array.isArray(interaction.data.options) ? interaction.data.options : []
     ).find((x: any) => x.name === "code")?.value;
