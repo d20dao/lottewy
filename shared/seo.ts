@@ -51,9 +51,11 @@ export function routeSeo(path: string, origin = SITE_ORIGIN): PageSeo {
             ? "Edit Giveaway"
             : path === "/admin"
               ? "Administration"
-              : path.startsWith("/g/") || path.startsWith("/agent/")
-                ? "Giveaway"
-                : "Page Not Found";
+              : path.startsWith("/discord")
+                ? "Discord Giveaway"
+                : path.startsWith("/g/") || path.startsWith("/agent/")
+                  ? "Giveaway"
+                  : "Page Not Found";
   return {
     ...base,
     title: title + " | Lottewy",

@@ -1,0 +1,25 @@
+{
+  "name": "giveaway",
+  "type": 1,
+  "description": "Show a Lottewy giveaway's recorded winners and proof links.",
+  "contexts": [0],
+  "integration_types": [0],
+  "options": [
+    {
+      "name": "id",
+      "description": "The giveaway ID from its Lottewy result URL.",
+      "type": 3,
+      "required": true,
+      "min_length": 36,
+      "max_length": 36
+    },
+    {
+      "name": "page",
+      "description": "Results page, with up to 10 selections per page.",
+      "type": 4,
+      "required": false,
+      "min_value": 1,
+      "max_value": 20
+    }
+  ]
+}

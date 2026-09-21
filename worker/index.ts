@@ -26,26 +26,38 @@ import { quote, reconcile } from "./reconcile";
 import { reserveTransaction, recordSubmission } from "./submission";
 import { storeJson, loadJson } from "./storage";
 import { applySeo, routeSeo, isPublicOrigin } from "../shared/seo";
+import { discordInteraction, type DiscordEnv } from "./discord";
+import {
+  discordLinks,
+  linkChallenge,
+  campaignCreate,
+  campaignRow,
+  publicCampaign,
+  recoverCampaignMessage,
+  processDiscordCampaigns,
+} from "./discord-campaigns";
+import { normalizeDiscordCampaign } from "../shared/discord-campaign";
 import {
   AbuseError,
   assertFunded,
   checkTurnstile,
   consumeReviewBudget,
 } from "./abuse";
-export type Env = ReviewEnv & {
-  DB: D1Database;
-  ASSETS: Fetcher;
-  APP_ORIGIN: string;
-  RPC_URL: string;
-  ADMIN_ADDRESSES: string;
-  CONSUMER_ADDRESS: string;
-  CONSUMER_CODE_HASH?: string;
-  CONSUMER_IMPLEMENTATION_ADDRESS?: string;
-  CONSUMER_IMPLEMENTATION_CODE_HASH?: string;
-  TURNSTILE_SITE_KEY?: string;
-  TURNSTILE_SECRET_KEY?: string;
-  AGENT_API_ORIGIN?: string;
-};
+export type Env = ReviewEnv &
+  DiscordEnv & {
+    DB: D1Database;
+    ASSETS: Fetcher;
+    APP_ORIGIN: string;
+    RPC_URL: string;
+    ADMIN_ADDRESSES: string;
+    CONSUMER_ADDRESS: string;
+    CONSUMER_CODE_HASH?: string;
+    CONSUMER_IMPLEMENTATION_ADDRESS?: string;
+    CONSUMER_IMPLEMENTATION_CODE_HASH?: string;
+    TURNSTILE_SITE_KEY?: string;
+    TURNSTILE_SECRET_KEY?: string;
+    AGENT_API_ORIGIN?: string;
+  };
 type Row = {
   id: string;
   slug: string;
@@ -206,9 +218,15 @@ async function signature(
   };
 }
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(
+    req: Request,
+    env: Env,
+    ctx?: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(req.url),
       path = url.pathname;
+    if (path === "/api/discord/interactions")
+      return discordInteraction(req, env, ctx);
     if (!path.startsWith("/api/")) {
       const pageRoute =
         [
@@ -219,8 +237,9 @@ export default {
           "/history",
           "/admin",
           "/demo",
+          "/discord",
         ].includes(path) ||
-        ["/g/", "/agent/", "/edit/", "/demo/"].some((prefix) =>
+        ["/g/", "/agent/", "/edit/", "/demo/", "/discord/"].some((prefix) =>
           path.startsWith(prefix),
         );
       if (!pageRoute) return env.ASSETS.fetch(req);
@@ -288,6 +307,10 @@ export default {
           chainId: CHAIN_ID,
           consumer: env.CONSUMER_ADDRESS || null,
           chainReady: !!env.CONSUMER_ADDRESS && !!env.CONSUMER_CODE_HASH,
+          discordConfigured:
+            !!env.DISCORD_APP_ID &&
+            !!env.DISCORD_APP_PUBLIC_KEY &&
+            !!env.DISCORD_BOT_TOKEN,
         });
       if (path === "/api/auth/challenge" && req.method === "POST") {
         const { address } = await body(req);
@@ -341,6 +364,71 @@ export default {
         });
       }
       const user = await session(req, env);
+      if (path === "/api/discord/links" && req.method === "GET") {
+        assert(user, "Please sign in with your wallet");
+        return json(await discordLinks(env, user.address));
+      }
+      const verificationMatch =
+        /^\/api\/discord\/verification\/(0x[\da-f]{64})$/i.exec(path);
+      if (verificationMatch && req.method === "GET") {
+        assert(user, "Please sign in with your wallet");
+        const result = await env.DB.prepare(
+          "SELECT consumed,message FROM nonces WHERE nonce=? AND address=? AND purpose='discord-link'",
+        )
+          .bind(verificationMatch[1], user.address)
+          .first<{ consumed: number; message: string | null }>();
+        return json({ linkId: result?.consumed ? result.message : null });
+      }
+      if (path === "/api/discord/challenge" && req.method === "POST") {
+        assert(user && !user.suspended, "Please sign in with an active wallet");
+        await body(req);
+        await assertFunded(env, user.address);
+        const count = await env.DB.prepare(
+          "INSERT INTO rate_limits(bucket,count,expires) VALUES (?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count",
+        )
+          .bind(
+            "discord-link:" + hash([user.address, Math.floor(now() / 60)]),
+            now() + 120,
+          )
+          .first<{ count: number }>();
+        assert(
+          count && count.count <= 5,
+          "Too many verification codes. Try again shortly.",
+        );
+        return json(await linkChallenge(env, user.address));
+      }
+      if (path === "/api/discord/campaigns" && req.method === "GET") {
+        assert(user, "Please sign in with your wallet");
+        const rows = await env.DB.prepare(
+          "SELECT * FROM discord_campaigns WHERE owner=? ORDER BY created DESC LIMIT 50",
+        )
+          .bind(user.address)
+          .all();
+        return json(rows.results.map((r: any) => publicCampaign(r)));
+      }
+      const campaignMatch = /^\/api\/discord\/campaigns\/([\da-f-]{36})$/i.exec(
+        path,
+      );
+      if (campaignMatch && req.method === "GET") {
+        const row = await campaignRow(env, campaignMatch[1].toLowerCase());
+        if (!row)
+          return json({ error: "Giveaway registration not found" }, 404);
+        const moderation = await env.DB.prepare(
+          "SELECT hidden FROM giveaways WHERE id=?",
+        )
+          .bind(row.id)
+          .first<{ hidden: number }>();
+        if (moderation?.hidden)
+          return json({ id: row.id, owner: row.owner, status: "hidden" });
+        if (
+          ctx &&
+          (row.status === "publishing" ||
+            row.status === "closing" ||
+            (row.status === "open" && row.ends_at <= now()))
+        )
+          ctx.waitUntil(processDiscordCampaigns(env));
+        return json({ ...publicCampaign(row), serverTime: now() });
+      }
       if (path === "/api/submission-hint" && req.method === "POST") {
         assert(user, "Please sign in with your wallet");
         const input = await body(req);
@@ -536,7 +624,7 @@ export default {
       if (path === "/api/actions/challenge" && req.method === "POST") {
         assert(user, "Please sign in with your wallet");
         const input = await body(req);
-        if (["create", "edit"].includes(input.actionType))
+        if (["create", "edit", "discordCreate"].includes(input.actionType))
           await assertFunded(env, user.address);
         const nonce = crypto.randomUUID();
         await env.DB.prepare(
@@ -648,7 +736,84 @@ export default {
         const row = await env.DB.prepare("SELECT * FROM giveaways WHERE id=?")
           .bind(action.giveawayId)
           .first<Row>();
-        if (action.actionType === "create" || action.actionType === "edit") {
+        if (action.actionType === "discordCreate") {
+          assert(
+            !user.suspended && !row && action.expectedRevision === 0,
+            "This wallet cannot create this Discord giveaway",
+          );
+          const d = normalizeDiscordCampaign(payload);
+          assert(
+            hash(d) === action.payloadHash,
+            "Normalize the campaign details before signing",
+          );
+          await assertFunded(env, user.address);
+          await checkTurnstile(
+            env,
+            turnstileToken,
+            req.headers.get("CF-Connecting-IP") || undefined,
+          );
+          await consumeReviewBudget(env, user.address);
+          const settings = await reviewSettings(env),
+            evaluation = await review({ ...d, entries: [] }, env, settings);
+          const prepared = await campaignCreate(
+            env,
+            user.address,
+            action.giveawayId,
+            d,
+            evaluation,
+          );
+          statements.push(
+            env.DB.prepare(
+              "INSERT INTO atomic_guard(ok) SELECT CASE WHEN EXISTS(SELECT 1 FROM app_settings WHERE key='jev_enabled' AND revision=?) THEN 1 ELSE 0 END",
+            ).bind(settings.revision),
+            ...prepared.statements,
+          );
+          result = prepared.result;
+          resultRevision = 1;
+        } else if (action.actionType === "discordRecover") {
+          assert(
+            !user.suspended && action.expectedRevision === 1,
+            "This recovery action is unavailable",
+          );
+          const campaign = await campaignRow(env, action.giveawayId);
+          assert(campaign?.owner === user.address, "Organizer access required");
+          statements.push(
+            ...(await recoverCampaignMessage(
+              env,
+              user.address,
+              action.giveawayId,
+              String(payload.messageId || ""),
+            )),
+          );
+          result = {
+            ...publicCampaign(campaign),
+            status: "open",
+            errorCode: null,
+          };
+        } else if (action.actionType === "discordCancel") {
+          const campaign = await campaignRow(env, action.giveawayId);
+          assert(
+            campaign?.owner === user.address &&
+              action.expectedRevision === 1 &&
+              [
+                "publishing",
+                "publishing_uncertain",
+                "open",
+                "insufficient",
+              ].includes(campaign.status),
+            "This registration cannot be cancelled",
+          );
+          statements.push(
+            env.DB.prepare(
+              "UPDATE discord_campaigns SET status='cancelled',error_code=NULL WHERE id=? AND owner=? AND status IN ('publishing','publishing_uncertain','open','insufficient')",
+            ).bind(campaign.id, user.address),
+            guard(env.DB),
+          );
+          result = { ...publicCampaign(campaign), status: "cancelled" };
+        } else if (
+          action.actionType === "create" ||
+          action.actionType === "edit"
+        ) {
           assert(
             !user.suspended,
             "This account cannot create or edit giveaways while suspended",
@@ -665,6 +830,23 @@ export default {
             /^[a-f\d-]{36}$/.test(action.giveawayId),
             "Invalid giveaway ID",
           );
+          assert(
+            !row || !(JSON.parse(row.public_json) as Giveaway).registration,
+            "Discord registration is closed. Its participant list and rules cannot be edited.",
+          );
+          if (!row) {
+            const reserved = await env.DB.prepare(
+              "SELECT id FROM discord_campaigns WHERE id=?",
+            )
+              .bind(action.giveawayId)
+              .first();
+            assert(!reserved, "This ID belongs to a Discord registration");
+            statements.push(
+              env.DB.prepare(
+                "INSERT INTO atomic_guard(ok) SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM discord_campaigns WHERE id=?) THEN 1 ELSE 0 END",
+              ).bind(action.giveawayId),
+            );
+          }
           const d = normalize(payload as Draft);
           assert(
             hash(d) === action.payloadHash,
@@ -927,6 +1109,8 @@ export default {
           ),
           env.DB.prepare("DELETE FROM atomic_guard"),
         ]);
+        if (ctx && action.actionType.startsWith("discord"))
+          ctx.waitUntil(processDiscordCampaigns(env));
         return json(result);
       }
       return json({ error: "Endpoint not found" }, 404);
@@ -976,6 +1160,7 @@ export default {
     ctx: ExecutionContext,
   ) {
     ctx.waitUntil(reconcile(env));
+    ctx.waitUntil(processDiscordCampaigns(env));
     ctx.waitUntil(
       env.DB.batch([
         env.DB.prepare("DELETE FROM sessions WHERE expires<?").bind(now()),
@@ -986,6 +1171,9 @@ export default {
         env.DB.prepare("DELETE FROM abuse_buckets WHERE expires<=?").bind(
           now(),
         ),
+        env.DB.prepare(
+          "DELETE FROM discord_interactions WHERE expires<=?",
+        ).bind(now()),
       ]).then(() => {}),
     );
   },

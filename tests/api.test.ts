@@ -131,6 +131,36 @@ beforeEach(async () => {
   cookie = (await login()).cookie;
 });
 describe("signed Worker actions / real SQL atomicity", () => {
+  it("rejects signed edits to the frozen Discord roster before consuming review budget", async () => {
+    const id = crypto.randomUUID();
+    const created = await call(
+      "/actions",
+      await command("create", id, 0, draft),
+    );
+    expect(created.status).toBe(200);
+    const g = (await created.json()) as any;
+    g.registration = { kind: "discord", campaignId: id, closedAt: 1 };
+    db.sqlite
+      .prepare("UPDATE giveaways SET public_json=? WHERE id=?")
+      .run(JSON.stringify(g), id);
+    abuse.consumeReviewBudget.mockClear();
+    const response = await call(
+      "/actions",
+      await command("edit", id, 1, { ...draft, title: "Changed roster" }),
+    );
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as any).error).toContain(
+      "cannot be edited",
+    );
+    expect(abuse.consumeReviewBudget).not.toHaveBeenCalled();
+    expect(
+      (
+        db.sqlite
+          .prepare("SELECT revision FROM giveaways WHERE id=?")
+          .get(id) as any
+      ).revision,
+    ).toBe(1);
+  });
   it("serializes simultaneous starts across giveaways owned by the same wallet", async () => {
     const ids = [crypto.randomUUID(), crypto.randomUUID()];
     const drafts = [];

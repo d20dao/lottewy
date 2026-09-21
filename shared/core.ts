@@ -67,6 +67,7 @@ export type Manifest = {
   entries: Entry[];
 };
 export type Giveaway = {
+  registration?: { kind: "discord"; campaignId: string; closedAt: number };
   refundAddress?: `0x${string}`;
   listed?: boolean;
   history?: { revision: number; commitment: Hex }[];

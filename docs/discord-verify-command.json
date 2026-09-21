@@ -1,0 +1,6 @@
+{
+ "name":"lottewy-verify","type":1,
+ "description":"Verify this server channel for your signed-in Lottewy wallet.",
+ "contexts":[0],"integration_types":[0],"default_member_permissions":"32",
+ "options":[{"name":"code","description":"One-time verification code from Lottewy. Run this in the giveaway channel.","type":3,"required":true,"min_length":36,"max_length":36}]
+}

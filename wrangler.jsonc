@@ -19,6 +19,8 @@
       "/edit/*",
       "/demo",
       "/demo/*",
+      "/discord",
+      "/discord/*",
     ],
   },
   "d1_databases": [

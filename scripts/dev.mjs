@@ -8,6 +8,9 @@ const workerKeys = [
   "JEV_API_KEY",
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
+  "DISCORD_APP_ID",
+  "DISCORD_APP_PUBLIC_KEY",
+  "DISCORD_BOT_TOKEN",
 ];
 const existingVars = existsSync(".dev.vars")
   ? parseEnv(readFileSync(".dev.vars", "utf8"))
