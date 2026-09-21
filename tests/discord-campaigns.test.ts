@@ -544,10 +544,18 @@ it("edits the original message through waiting, pending and winners without dupl
     ),
   ).toBe(true);
   expect(message.allowed_mentions).toEqual({ parse: [] });
-  expect(posts).toHaveLength(1);
+  expect(posts).toHaveLength(2);
+  const winningId = winner === 1 ? "678901234567890123" : "789012345678901234";
+  expect(posts[1].allowed_mentions).toEqual({
+    parse: [],
+    users: [winningId],
+    replied_user: false,
+  });
+  expect(posts[1].content).toContain(`<@${winningId}>`);
   const count = patches.length;
   await processDiscordCampaigns(env);
   expect(patches).toHaveLength(count);
+  expect(posts).toHaveLength(2);
   db.sqlite.prepare("UPDATE giveaways SET hidden=1 WHERE id=?").run(id);
   await processDiscordCampaigns(env);
   expect(patches.at(-1).embeds[0].title).toBe("Giveaway unavailable");

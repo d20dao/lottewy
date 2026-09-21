@@ -17,6 +17,7 @@ export async function campaignResultMessage(
     status: string;
     hidden: number;
   },
+  onWinners?: (userIds: string[]) => void,
 ) {
   const g = JSON.parse(record.public_json) as Giveaway,
     url = new URL(env.APP_ORIGIN).origin + "/g/" + g.id;
@@ -77,6 +78,7 @@ export async function campaignResultMessage(
     archive = (await loadJson(env.DB, record.private_json)) as {
       entries: { id: number; raw: string; salt: string }[];
     };
+  const identities = new Map<number, string>();
   const lines = (ids: number[]) =>
     ids.map((id, index) => {
       const entry = archive.entries.find((item) => item.id === id),
@@ -90,6 +92,7 @@ export async function campaignResultMessage(
         throw new Error("Discord entry opening mismatch");
       const match = /\[Discord (\d{17,20})\]$/.exec(entry.raw);
       if (!match) throw new Error("Discord identity missing");
+      identities.set(id, match[1]);
       return `${index + 1}. <@${match[1]}> · #${id}`;
     });
   const fields: { name: string; value: string }[] = [];
@@ -109,12 +112,13 @@ export async function campaignResultMessage(
       name: "More alternates",
       value: `${result.reserves.length} alternates recorded. Open the giveaway for the complete entry order.`,
     });
+  onWinners?.(result.winners.map((id) => identities.get(id)!));
   return {
     ...base,
     embeds: [
       {
         title: discordText(g.manifest.title),
-        description: `🎉 **The draw is complete**\n${result.winners.length} winner${result.winners.length === 1 ? "" : "s"} selected from ${g.manifest.entries.length} entries. Verify the recorded result on Lottewy.`,
+        description: `🎉 **Congratulations to the winners!** 🏆\n${result.winners.length} winner${result.winners.length === 1 ? "" : "s"} selected from ${g.manifest.entries.length} entries. The draw is complete. Verify the recorded result on Lottewy.`,
         color: 0xb7e968,
         fields,
         footer: {

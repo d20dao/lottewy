@@ -7,6 +7,10 @@ import { storeJson } from "./storage";
 import { discordMentions, discordText } from "./discord-format";
 import type { DiscordEnv } from "./discord";
 import { campaignResultMessage } from "./discord-result-message";
+import {
+  queueWinnerNotifications,
+  sendWinnerNotifications,
+} from "./discord-notifications";
 export type CampaignEnv = DiscordEnv & { DISCORD_BOT_TOKEN?: string };
 export class DiscordCampaignError extends Error {}
 export class DiscordRateLimitError extends DiscordCampaignError {
@@ -81,9 +85,7 @@ export async function discordApi(
         response.headers.get("Retry-After") || data.retry_after || 5,
       );
       throw new DiscordRateLimitError(
-        Number.isFinite(value)
-          ? Math.max(1, Math.ceil(value))
-          : 5,
+        Number.isFinite(value) ? Math.max(1, Math.ceil(value)) : 5,
       );
     }
     if (!response.ok)
@@ -679,6 +681,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
   if (!env.DISCORD_BOT_TOKEN) return;
   const work = await env.DB.prepare(
     `SELECT id FROM discord_campaigns WHERE checked_at<=unixepoch() AND (status='publishing' OR status='closing' OR (status='open' AND ends_at<=unixepoch())
+   OR EXISTS(SELECT 1 FROM discord_notifications n WHERE n.campaign_id=discord_campaigns.id AND (n.state='sending' OR (n.state='pending' AND n.retry_at<=unixepoch())))
    OR (message_id IS NOT NULL AND COALESCE(message_state,'')<>CASE WHEN status='ready' THEN COALESCE((SELECT 'result:'||CASE WHEN hidden=1 THEN 'hidden' ELSE g.status END FROM giveaways g WHERE g.id=discord_campaigns.id),'ready') ELSE status END AND status IN ('ready','insufficient','cancelled','expired'))) ORDER BY checked_at LIMIT 3`,
   ).all<{ id: string }>();
   for (const item of work.results) {
@@ -853,20 +856,35 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
         row.message_state !== messageState &&
         ["ready", "insufficient", "cancelled", "expired"].includes(row.status)
       ) {
+        let winnerIds: string[] = [];
+        const payload = resultRecord
+          ? await campaignResultMessage(env, resultRecord, (ids) => {
+              winnerIds = ids;
+            })
+          : announcement(env, row);
         await discordApi(
           env,
           `/channels/${row.channel_id}/messages/${row.message_id}`,
           "PATCH",
-          resultRecord
-            ? await campaignResultMessage(env, resultRecord)
-            : announcement(env, row),
+          payload,
         );
-        await env.DB.prepare(
-          "UPDATE discord_campaigns SET message_state=?,error_code=NULL WHERE id=? AND status=? AND lease_token=? AND lease_until>unixepoch()",
-        )
-          .bind(messageState, row.id, row.status, token)
-          .run();
+        await env.DB.batch([
+          env.DB.prepare(
+            "UPDATE discord_campaigns SET message_state=?,error_code=NULL WHERE id=? AND status=? AND lease_token=? AND lease_until>unixepoch()",
+          ).bind(messageState, row.id, row.status, token),
+          guard(env.DB),
+          ...queueWinnerNotifications(env, row, winnerIds),
+          env.DB.prepare("DELETE FROM atomic_guard"),
+        ]);
       }
+      if (resultRecord?.hidden)
+        await env.DB.prepare(
+          "UPDATE discord_notifications SET state='cancelled' WHERE campaign_id=? AND state='pending'",
+        )
+          .bind(row.id)
+          .run();
+      else if (resultRecord?.status === "completed")
+        await sendWinnerNotifications(env, row, token);
     } catch (error) {
       if (error instanceof DiscordRateLimitError) {
         await env.DB.prepare(
