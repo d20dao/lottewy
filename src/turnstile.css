@@ -1,0 +1,61 @@
+.save-verification {
+  margin: 22px 0 18px;
+}
+.save-verification .save-verification-label {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #485b37;
+  font-weight: 550;
+}
+.turnstile-slot {
+  width: 100%;
+  min-height: 65px;
+}
+.turnstile-slot[data-compact="true"] {
+  min-height: 140px;
+}
+.verification-feedback {
+  min-height: 46px;
+  padding-top: 9px;
+}
+.verification-feedback p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+  color: #66765a;
+}
+.verification-feedback .text-button {
+  min-height: 36px;
+  font-size: 12px;
+}
+.save-funding-help {
+  margin: 14px 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.save-funding-help h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.save-funding-help p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.save-funding-help .actions {
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+}
+.save-funding-help a {
+  min-height: 40px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.review-save > .save-balance-note {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0 0 20px;
+  color: #6b775e;
+}

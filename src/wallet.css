@@ -1,0 +1,122 @@
+.wallet-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #dce3d1;
+  background: #f8faf4;
+  border-radius: 9px;
+  padding: 4px;
+  min-height: 44px;
+}
+.wallet-network,
+.wallet-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  min-height: 34px;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 5px;
+}
+.wallet-network {
+  font-size: 11px;
+  color: #71815f;
+}
+.wallet-network > span {
+  width: 5px;
+  height: 5px;
+  background: #8cac5a;
+  border-radius: 50%;
+}
+.wallet-account {
+  background: #edf3e3;
+  color: #3c4f2a;
+  font-size: 12px;
+}
+.wallet-account > span {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.wallet-account > svg:last-child {
+  color: #788c63;
+  margin-left: 3px;
+}
+.wallet-account:hover {
+  background: #e4edd7;
+}
+.wallet-network:hover {
+  background: #eef3e6;
+}
+.header-actions .wallet-connect {
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 44px;
+  padding: 10px 15px;
+  gap: 9px;
+  box-shadow: none;
+  background: #f7faf1;
+  border-color: #dae3cc;
+}
+.wallet-avatar {
+  display: grid;
+  place-items: center;
+  background: #edf4e1;
+  color: #7b9a54;
+  border-radius: 50%;
+}
+.wallet-avatar svg {
+  stroke-width: 1.45;
+}
+[data-rk] [role="dialog"] h1 {
+  font-family: "DM Sans", sans-serif;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+[data-rk] h1[id="rk_profile_title"] {
+  font-weight: 550;
+  margin: 0;
+}
+[data-rk] h1[id="rk_profile_title"] + h1 {
+  letter-spacing: 0;
+}
+[data-rk] [role="dialog"] button {
+  letter-spacing: 0;
+}
+[data-rk] h1[id="rk_profile_title"]:last-child {
+  word-spacing: 2px;
+}
+@media (max-width: 600px) {
+  .wallet-network {
+    display: none;
+  }
+  .wallet-control {
+    padding: 3px;
+    min-height: 38px;
+  }
+  .wallet-account {
+    padding: 7px 9px;
+    gap: 6px;
+    min-height: 30px;
+  }
+  .wallet-account > span {
+    font-size: 10px;
+  }
+  .wallet-account > svg:first-child {
+    width: 14px;
+  }
+  .wallet-account > svg:last-child {
+    width: 12px;
+    margin-left: 0;
+  }
+  .header-actions .wallet-connect {
+    min-height: 38px;
+    font-size: 11px;
+    padding: 8px 11px;
+  }
+  .header-actions .wallet-connect svg {
+    display: none;
+  }
+}
