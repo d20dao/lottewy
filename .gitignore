@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.wrangler/
+.env
+.env.*
+.dev.vars*
+!.env.example
+test-results/
+playwright-report/
+artifacts/
+design-concepts/
+# Markdown is private by default. Only reviewed English docs may be committed.
+**/*.md
+!/README.md
+!/UI-CONTEXT.md
+!/docs/IMPLEMENTATION.md
+docs/*-current.txt
