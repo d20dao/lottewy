@@ -54,6 +54,7 @@ type Campaign = {
   giveawayId: string | null;
   errorCode: string | null;
   messageUrl: string | null;
+  messageRecoveryRequired?: boolean;
   roleIds?: string[];
 };
 const names: Record<string, string> = {
@@ -731,7 +732,9 @@ export function DiscordCreator(props: Props) {
           <p className="eyebrow">ANNOUNCEMENT PREVIEW</p>
           <h2>{form.title}</h2>
           <p className="muted">
-            {selected?.guildName} / #{selected?.channelName}
+            {selected?.guildName} / #
+            {channels.find((c) => c.id === form.channelId)?.name ||
+              form.channelId}
           </p>
           {form.description && <p className="preserve">{form.description}</p>}
           <p className="preserve">{form.rules}</p>
@@ -884,14 +887,60 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
         Loading registration…
       </p>
     );
+  const recovery = user?.address.toLowerCase() === campaign.owner &&
+    campaign.messageRecoveryRequired && (
+      <section className="discord-recovery">
+        <h2>Check the announcement</h2>
+        <p>
+          Message delivery was uncertain. Lottewy will not send a second
+          announcement. If it appeared in Discord, link that original message
+          below.
+        </p>
+        <label htmlFor="discord-message-id">
+          Original Discord message ID or link
+        </label>
+        <input
+          id="discord-message-id"
+          value={messageId}
+          onChange={(e) => setMessageId(e.target.value)}
+        />
+        <button
+          className="button secondary"
+          disabled={busy || !messageId.trim()}
+          onClick={() =>
+            run(async () => {
+              try {
+                const value = messageId.trim(),
+                  matched =
+                    /^https:\/\/(?:discord.com|discordapp.com)\/channels\/\d+\/\d+\/(\d+)$/.exec(
+                      value,
+                    );
+                await mutate("discordRecover", id, 1, {
+                  messageId: matched?.[1] || value,
+                });
+                await load();
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            })
+          }
+        >
+          Link existing message
+        </button>
+      </section>
+    );
   if (campaign.status === "expired")
     return (
-      <Empty title="Registration expired">
-        <p>
-          No draw was started within 30 days of closing. The participant list
-          and undrawn draft have been removed.
-        </p>
-      </Empty>
+      <>
+        <Empty title="Registration expired">
+          <p>
+            No draw was started within 30 days of closing. The participant list
+            and undrawn draft have been removed.
+          </p>
+        </Empty>
+        {recovery}
+        {error && <p role="alert">{error}</p>}
+      </>
     );
   if (campaign.status === "hidden")
     return (
@@ -988,47 +1037,7 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
           draw has started. The list cannot be changed.
         </p>
       )}
-      {owner && campaign.status === "publishing_uncertain" && (
-        <section className="discord-recovery">
-          <h2>Check the announcement</h2>
-          <p>
-            Message delivery was uncertain. Lottewy will not send a second
-            announcement. If it appeared in Discord, link that original message
-            below.
-          </p>
-          <label htmlFor="discord-message-id">
-            Original Discord message ID or link
-          </label>
-          <input
-            id="discord-message-id"
-            value={messageId}
-            onChange={(e) => setMessageId(e.target.value)}
-          />
-          <button
-            className="button secondary"
-            disabled={busy || !messageId.trim()}
-            onClick={() =>
-              run(async () => {
-                try {
-                  const value = messageId.trim(),
-                    matched =
-                      /^https:\/\/(?:discord.com|discordapp.com)\/channels\/\d+\/\d+\/(\d+)$/.exec(
-                        value,
-                      );
-                  await mutate("discordRecover", id, 1, {
-                    messageId: matched?.[1] || value,
-                  });
-                  await load();
-                } catch (e) {
-                  setError((e as Error).message);
-                }
-              })
-            }
-          >
-            Link existing message
-          </button>
-        </section>
-      )}
+      {recovery}
       {error && (
         <p className="field-error" role="alert">
           {error}

@@ -1,6 +1,6 @@
 // Preserve signed audit records and a small ID tombstone; remove undrawn rosters.
 export async function expireDiscordRegistrations(env: { DB: D1Database }) {
-  const eligible = `status IN ('publishing','publishing_uncertain','open','closing','ready','insufficient','cancelled') AND ends_at<=unixepoch()-2592000 AND lease_until<unixepoch()
+  const eligible = `status IN ('publishing','publishing_uncertain','open','closing','ready','insufficient','cancelled') AND CASE WHEN status='cancelled' THEN COALESCE(closed_at,ends_at) ELSE ends_at END<=unixepoch()-2592000 AND lease_until<unixepoch()
  AND NOT EXISTS(SELECT 1 FROM attempts WHERE giveaway_id=discord_campaigns.id)
  AND NOT EXISTS(SELECT 1 FROM chain_events WHERE giveaway_id=discord_campaigns.id)
  AND NOT EXISTS(SELECT 1 FROM giveaways WHERE id=discord_campaigns.id AND status<>'draft')

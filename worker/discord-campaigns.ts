@@ -110,12 +110,24 @@ export async function discordRoles(
   linkId: string,
 ) {
   const link = await env.DB.prepare(
-    "SELECT guild_id FROM discord_links WHERE id=? AND owner=?",
+    "SELECT guild_id,verifier_id FROM discord_links WHERE id=? AND owner=?",
   )
     .bind(linkId, owner)
-    .first<{ guild_id: string }>();
+    .first<{ guild_id: string; verifier_id: string }>();
   assert(link, "Verify this server channel first");
   const guild = await discordApi(env, "/guilds/" + link.guild_id);
+  const member = await discordApi(
+      env,
+      `/guilds/${link.guild_id}/members/${link.verifier_id}`,
+    ),
+    memberRoles = new Set([link.guild_id, ...(member.roles || [])]),
+    permissions = (guild.roles || [])
+      .filter((r: any) => memberRoles.has(r.id))
+      .reduce((sum: bigint, r: any) => sum | BigInt(r.permissions || "0"), 0n);
+  assert(
+    guild.owner_id === link.verifier_id || (permissions & 40n) !== 0n,
+    "Verify the server again with Manage Server permission",
+  );
   return (Array.isArray(guild.roles) ? guild.roles : [])
     .filter((r: any) => snowflake.test(r.id) && r.id !== link.guild_id)
     .map((r: any) => ({
@@ -403,6 +415,10 @@ export function publicCampaign(row: Campaign) {
     closedAt: row.closed_at,
     participantCount: row.participant_count,
     payloadHash: row.payload_hash,
+    messageRecoveryRequired:
+      !row.message_id &&
+      !!row.publish_started_at &&
+      ["publishing_uncertain", "cancelled", "expired"].includes(row.status),
     roleIds: d.roleIds || [],
     giveawayId: row.status === "ready" ? row.id : null,
     errorCode: row.error_code,
@@ -442,7 +458,7 @@ export async function participantAction(
   );
   // A signed component can recover a successful announcement whose HTTP reply was lost.
   await env.DB.prepare(
-    "UPDATE discord_campaigns SET message_id=?,message_state='open',status=CASE WHEN status='cancelled' THEN status ELSE 'open' END,error_code=NULL WHERE id=? AND message_id IS NULL AND publish_started_at IS NOT NULL AND status IN ('publishing','publishing_uncertain','cancelled')",
+    "UPDATE discord_campaigns SET message_id=?,message_state='open',status=CASE WHEN status IN ('cancelled','expired') THEN status ELSE 'open' END,error_code=NULL WHERE id=? AND message_id IS NULL AND publish_started_at IS NOT NULL AND status IN ('publishing','publishing_uncertain','cancelled','expired')",
   )
     .bind(messageId, id)
     .run();
@@ -609,7 +625,10 @@ export async function recoverCampaignMessage(
   assert(snowflake.test(messageId), "Enter the Discord message ID");
   const row = await campaignRow(env, id);
   assert(
-    row?.owner === owner && row.status === "publishing_uncertain",
+    row?.owner === owner &&
+      !row.message_id &&
+      !!row.publish_started_at &&
+      ["publishing_uncertain", "cancelled", "expired"].includes(row.status),
     "This campaign does not need message recovery",
   );
   const botId = await botIdentity(env),
@@ -627,7 +646,7 @@ export async function recoverCampaignMessage(
   );
   return [
     env.DB.prepare(
-      "UPDATE discord_campaigns SET message_id=?,message_state='open',status='open',error_code=NULL WHERE id=? AND owner=? AND status='publishing_uncertain'",
+      "UPDATE discord_campaigns SET message_id=?,message_state='open',status=CASE WHEN status='publishing_uncertain' THEN 'open' ELSE status END,error_code=NULL WHERE id=? AND owner=? AND message_id IS NULL AND publish_started_at IS NOT NULL AND status IN ('publishing_uncertain','cancelled','expired')",
     ).bind(messageId, id, owner),
     guard(env.DB),
   ];
@@ -671,7 +690,7 @@ export async function processDiscordCampaigns(env: CampaignEnv) {
           .run();
         if (!started.meta.changes) {
           await env.DB.prepare(
-            "UPDATE discord_campaigns SET status='cancelled',error_code='PUBLICATION_EXPIRED' WHERE id=? AND lease_token=?",
+            "UPDATE discord_campaigns SET status='cancelled',closed_at=COALESCE(closed_at,unixepoch()),error_code='PUBLICATION_EXPIRED' WHERE id=? AND lease_token=?",
           )
             .bind(row.id, token)
             .run();

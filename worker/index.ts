@@ -418,7 +418,7 @@ export default {
       if (path === "/api/discord/campaigns" && req.method === "GET") {
         assert(user, "Please sign in with your wallet");
         const rows = await env.DB.prepare(
-          "SELECT * FROM discord_campaigns WHERE owner=? AND status<>'expired' ORDER BY created DESC LIMIT 50",
+          "SELECT * FROM discord_campaigns WHERE owner=? AND (status<>'expired' OR (message_id IS NULL AND publish_started_at IS NOT NULL)) ORDER BY created DESC LIMIT 50",
         )
           .bind(user.address)
           .all();
@@ -807,7 +807,10 @@ export default {
           );
           result = {
             ...publicCampaign(campaign),
-            status: "open",
+            status:
+              campaign.status === "publishing_uncertain"
+                ? "open"
+                : campaign.status,
             errorCode: null,
           };
         } else if (action.actionType === "discordCancel") {
@@ -825,7 +828,7 @@ export default {
           );
           statements.push(
             env.DB.prepare(
-              "UPDATE discord_campaigns SET status='cancelled',error_code=NULL WHERE id=? AND owner=? AND status IN ('publishing','publishing_uncertain','open','insufficient')",
+              "UPDATE discord_campaigns SET status='cancelled',closed_at=COALESCE(closed_at,unixepoch()),error_code=NULL WHERE id=? AND owner=? AND status IN ('publishing','publishing_uncertain','open','insufficient')",
             ).bind(campaign.id, user.address),
             guard(env.DB),
           );

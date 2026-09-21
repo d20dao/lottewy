@@ -10,6 +10,8 @@ import {
   verifyChannel,
   canPostInChannel,
   discordLinks,
+  discordRoles,
+  recoverCampaignMessage,
 } from "../worker/discord-campaigns";
 import { loadJson } from "../worker/storage";
 import { hash } from "../shared/core";
@@ -79,6 +81,12 @@ beforeEach(() => {
           guild_id: guild,
           type: 0,
           name: "giveaways",
+        });
+      if (path.endsWith("/messages/" + message) && options.method === "GET")
+        return Response.json({
+          author: { id: app },
+          channel_id: channel,
+          components: posts.at(-1)?.components,
         });
       if (options.method === "POST" && path.endsWith("/messages")) {
         posts.push(JSON.parse(options.body));
@@ -257,6 +265,9 @@ it("requires Manage Server permission, consumes verification once, and rechecks 
   ).rejects.toThrow("expired");
   const link = db.sqlite.prepare("SELECT id FROM discord_links").get() as any;
   hasManager = false;
+  await expect(discordRoles(env, owner, link.id)).rejects.toThrow(
+    "Manage Server",
+  );
   await expect(
     campaignCreate(
       env,
@@ -276,6 +287,47 @@ it("requires Manage Server permission, consumes verification once, and rechecks 
     ),
   ).rejects.toThrow("no longer");
   expect(posts).toHaveLength(0);
+});
+
+it("recovers lost announcement IDs after cancellation or expiry without reopening entries", async () => {
+  const { id } = await create();
+  failPost = true;
+  await processDiscordCampaigns(env);
+  db.sqlite
+    .prepare(
+      "UPDATE discord_campaigns SET status='cancelled',closed_at=? WHERE id=?",
+    )
+    .run(clock, id);
+  const prepared = await recoverCampaignMessage(env, owner, id, message);
+  await env.DB.batch([...prepared, env.DB.prepare("DELETE FROM atomic_guard")]);
+  expect((await campaignRow(env, id))!.status).toBe("cancelled");
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].description).toContain("cancelled");
+  db.sqlite
+    .prepare(
+      "UPDATE discord_campaigns SET status='expired',message_id=NULL WHERE id=?",
+    )
+    .run(id);
+  await env.DB.batch([
+    ...(await recoverCampaignMessage(env, owner, id, message)),
+    env.DB.prepare("DELETE FROM atomic_guard"),
+  ]);
+  expect((await campaignRow(env, id))!.status).toBe("expired");
+  await processDiscordCampaigns(env);
+  expect(patches.at(-1).embeds[0].description).toContain("Expired");
+  expect(posts).toHaveLength(1);
+});
+
+it("expires an early cancellation 30 days after cancellation, not 30 days after the planned deadline", async () => {
+  const { id } = await create();
+  db.sqlite
+    .prepare(
+      "UPDATE discord_campaigns SET status='cancelled',closed_at=?,ends_at=? WHERE id=?",
+    )
+    .run(clock, clock + 2592000, id);
+  clock += 2592000;
+  await expireDiscordRegistrations(env);
+  expect((await campaignRow(env, id))!.status).toBe("expired");
 });
 it("records one entry per user, permits leaving only before cutoff, and freezes a normal giveaway without starting a draw", async () => {
   const { id, input } = await create();
