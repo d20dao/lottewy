@@ -16,6 +16,7 @@ import {
 import { Collapsible, Dialog, Empty } from "./components/primitives";
 import TurnstileWidget from "./components/TurnstileWidget";
 import "./discord.css";
+import DiscordEntries from "./components/DiscordEntries";
 type Props = {
   user: { address: string } | null;
   config: any;
@@ -1146,7 +1147,18 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
       <dl className="discord-summary">
         <div>
           <dt>Entries</dt>
-          <dd>{campaign.participantCount}</dd>
+          <dd>
+            {owner ? (
+              <DiscordEntries
+                key={user!.address}
+                id={id}
+                count={campaign.participantCount}
+                address={user!.address}
+              />
+            ) : (
+              campaign.participantCount
+            )}
+          </dd>
         </div>
         <div>
           <dt>Winners</dt>
@@ -1212,6 +1224,12 @@ export function DiscordCampaignPage({ user, busy, run, mutate }: Props) {
       {campaign.errorCode === "DISCORD_RATE_LIMITED" && (
         <p role="status">
           Discord is temporarily busy. Lottewy will retry automatically.
+        </p>
+      )}
+      {owner && campaign.errorCode === "WINNER_NOTIFICATION_UNCERTAIN" && (
+        <p role="status">
+          Winner notification delivery could not be confirmed. The recorded
+          result is available; Lottewy will not send duplicate mentions.
         </p>
       )}
       {recovery}

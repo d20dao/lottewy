@@ -131,6 +131,55 @@ beforeEach(async () => {
   cookie = (await login()).cookie;
 });
 describe("signed Worker actions / real SQL atomicity", () => {
+  it("returns bounded Discord entries only to the organizer and rejects expired lists", async () => {
+    const id = crypto.randomUUID();
+    db.sqlite
+      .prepare(
+        "INSERT INTO discord_campaigns(id,owner,status,input_json,payload_hash,guild_id,channel_id,ends_at,created,review_json) VALUES (?,?,'open','{}','test','guild','channel',9999999999,1,'{}')",
+      )
+      .run(id, account.address.toLowerCase());
+    for (let i = 0; i < 41; i++)
+      db.sqlite
+        .prepare(
+          "INSERT INTO discord_entries(campaign_id,user_id,display_name,joined_at) VALUES (?,?,?,?)",
+        )
+        .run(
+          id,
+          String(100000000000000000n + BigInt(i)),
+          "Member " + i,
+          100 + i,
+        );
+    const path = `/discord/campaigns/${id}/entries?page=1&size=20`;
+    expect((await call(path, undefined, "")).status).toBe(401);
+    expect(
+      (await call(path, undefined, "lottewy=" + account.address)).status,
+    ).toBe(401);
+    const otherSession = await login(other);
+    expect((await call(path, undefined, otherSession.cookie)).status).toBe(403);
+    expect(
+      (
+        await call(
+          path + "&address=" + account.address,
+          undefined,
+          otherSession.cookie,
+        )
+      ).status,
+    ).toBe(403);
+    const response = await call(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    const result = (await response.json()) as any;
+    expect(result.total).toBe(41);
+    expect(result.entries).toHaveLength(20);
+    expect(result.entries[0].displayName).toBe("Member 20");
+    expect(
+      (await call(`/discord/campaigns/${id}/entries?size=10000`)).status,
+    ).toBe(400);
+    db.sqlite
+      .prepare("UPDATE discord_campaigns SET status='expired' WHERE id=?")
+      .run(id);
+    expect((await call(path)).status).toBe(410);
+  });
   it("requires the admin signed action for fixed Discord command registration and journals retries", async () => {
     const denied = await call(
       "/actions",

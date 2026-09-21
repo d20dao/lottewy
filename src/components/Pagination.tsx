@@ -6,6 +6,7 @@ export default function Pagination({
   onPage,
   onSize,
   busy = false,
+  kind = "giveaway",
 }: {
   page: number;
   total: number;
@@ -13,7 +14,10 @@ export default function Pagination({
   onPage: (page: number) => void;
   onSize: (size: number) => void;
   busy?: boolean;
+  kind?: "giveaway" | "entry";
 }) {
+  const plural = kind === "entry" ? "entries" : "giveaways",
+    capital = kind === "entry" ? "Entry" : "Giveaway";
   const pages = Math.max(1, Math.ceil(total / size)),
     numbers = [
       ...new Set([
@@ -27,20 +31,21 @@ export default function Pagination({
   return (
     <nav
       className="explorer-pagination"
-      aria-label="Giveaway pages"
+      aria-label={capital + " pages"}
       aria-busy={busy}
     >
       <span className="pagination-summary" aria-live="polite">
         {total
           ? `${page * size + 1}–${Math.min((page + 1) * size, total)}`
           : "0"}{" "}
-        of {total.toLocaleString("en-US")}{" "}
-        {total === 1 ? "giveaway" : "giveaways"}
+        of {total.toLocaleString("en-US")} {total === 1 ? kind : plural}
       </span>
       <label>
         Per page
         <select
-          aria-label="Giveaways per page"
+          aria-label={
+            (kind === "entry" ? "Entries" : "Giveaways") + " per page"
+          }
           disabled={busy}
           value={size}
           onChange={(e) => onSize(Number(e.target.value))}
@@ -53,7 +58,7 @@ export default function Pagination({
       <div className="pagination-pages">
         <button
           className="icon-button"
-          aria-label="Previous giveaway page"
+          aria-label={"Previous " + kind + " page"}
           disabled={busy || page === 0}
           onClick={() => onPage(page - 1)}
         >
@@ -77,7 +82,7 @@ export default function Pagination({
         ))}
         <button
           className="icon-button"
-          aria-label="Next giveaway page"
+          aria-label={"Next " + kind + " page"}
           disabled={busy || page >= pages - 1}
           onClick={() => onPage(page + 1)}
         >

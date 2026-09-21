@@ -1,5 +1,6 @@
 import VerificationDialog from "./components/VerificationDialog";
 import Pagination from "./components/Pagination";
+import DiscordEntries from "./components/DiscordEntries";
 import WalletControl from "./components/WalletControl";
 import { Empty, Dialog } from "./components/primitives";
 import Editor from "./Editor";
@@ -1488,7 +1489,16 @@ function GiveawayPage({
         <div className="stats">
           <span>
             <Users />
-            {entries.length} entries
+            {owner && g.registration ? (
+              <DiscordEntries
+                key={user.address}
+                id={g.registration.campaignId}
+                count={entries.length}
+                address={user.address}
+              />
+            ) : (
+              `${entries.length} entries`
+            )}
           </span>
           <span>
             <Trophy />

@@ -20,6 +20,12 @@ export function database() {
         return { results: sqlite.prepare(sql).all(...args) };
       },
       async run() {
+        if (/^\s*SELECT\b/i.test(sql))
+          return {
+            success: true,
+            results: sqlite.prepare(sql).all(...args),
+            meta: { changes: 0 },
+          };
         const result = sqlite.prepare(sql).run(...args);
         return { success: true, meta: { changes: Number(result.changes) } };
       },

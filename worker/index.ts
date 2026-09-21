@@ -429,6 +429,54 @@ export default {
           .all();
         return json(rows.results.map((r: any) => publicCampaign(r)));
       }
+      const entriesMatch =
+        /^\/api\/discord\/campaigns\/([\da-f-]{36})\/entries$/i.exec(path);
+      if (entriesMatch && req.method === "GET") {
+        if (!user)
+          return json(
+            { error: "Sign in with the organizer wallet to view entries" },
+            401,
+          );
+        const campaign = await campaignRow(env, entriesMatch[1].toLowerCase());
+        if (!campaign || campaign.owner !== user.address)
+          return json(
+            { error: "Only the organizer can view this participant list" },
+            403,
+          );
+        if (campaign.status === "expired")
+          return json(
+            {
+              error:
+                "The participant list has been removed under the retention policy",
+            },
+            410,
+          );
+        const params = new URL(req.url).searchParams,
+          pageText = params.get("page") || "0",
+          sizeText = params.get("size") || "20";
+        assert(
+          /^\d{1,4}$/.test(pageText) && ["10", "20", "50"].includes(sizeText),
+          "Invalid pagination",
+        );
+        const page = Number(pageText),
+          size = Number(sizeText);
+        assert(page <= 1000, "Invalid page");
+        const results = await env.DB.batch([
+          env.DB.prepare(
+            "SELECT COUNT(*) AS total FROM discord_entries WHERE campaign_id=?",
+          ).bind(campaign.id),
+          env.DB.prepare(
+            "SELECT user_id AS userId,display_name AS displayName,joined_at AS joinedAt FROM discord_entries WHERE campaign_id=? ORDER BY length(user_id),user_id LIMIT ? OFFSET ?",
+          ).bind(campaign.id, size, page * size),
+        ]);
+        return json({
+          entries: results[1].results,
+          total: (results[0].results[0] as any).total,
+          page,
+          size,
+          status: campaign.status,
+        });
+      }
       const campaignMatch = /^\/api\/discord\/campaigns\/([\da-f-]{36})$/i.exec(
         path,
       );
