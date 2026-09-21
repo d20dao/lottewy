@@ -5,14 +5,34 @@
   "chainId": 5042,
   "consumer": "0x70824f30bd7a3d3994a5579ad5752d9f0f4a557e",
   "websiteWorkerVersion": "1505c3ec-80ef-4a82-aca4-7efd3413bb42",
-  "apiWorkerVersion": "7f66e431-eb4f-4968-87d4-26b2c8b6e0d2",
+  "apiWorkerVersion": "08442ee5-94c1-491a-aa6e-e6becaeebef9",
   "websiteDatabaseId": "45a2a0d1-9e80-4b30-a097-23177453db43",
   "apiDatabaseId": "64e21ef3-4262-4efb-b728-1ef1941981f7",
   "discordEndpoint": "https://lottewy.com/api/discord/interactions",
   "supportEmail": "hello@lottewy.com",
   "supportForwardingEnabled": true,
   "pricing": "D20DAO fee budget plus estimated gas budget; zero platform markup; five-minute per-draft quotes",
-  "retiredTestnet": {"httpStatus": 410, "workerVersion": "43997c06-e92e-4392-b030-245e67ab8770", "activeDrawsAtRetirement": 0, "activeRegistrationsAtRetirement": 0, "pendingNotificationsAtRetirement": 0, "databaseRetainedForRecovery": true},
-  "checks": {"mainnetSignIn": true, "pinnedContractQuote": true, "llmsStatus": 200, "apiHealthStatus": 200, "apiPrepareStatus": 200, "unpaidRollStatus": 402, "circleInspect": true, "circleReadinessScore": 100, "mainnetPaidDrawTested": false},
-  "publicRepositories": ["https://github.com/d20dao/lottewy", "https://github.com/d20dao/lottewy-x402"]
+  "retiredTestnet": {
+    "httpStatus": 410,
+    "workerVersion": "43997c06-e92e-4392-b030-245e67ab8770",
+    "activeDrawsAtRetirement": 0,
+    "activeRegistrationsAtRetirement": 0,
+    "pendingNotificationsAtRetirement": 0,
+    "databaseRetainedForRecovery": true
+  },
+  "checks": {
+    "mainnetSignIn": true,
+    "pinnedContractQuote": true,
+    "llmsStatus": 200,
+    "apiHealthStatus": 200,
+    "apiPrepareStatus": 200,
+    "unpaidRollStatus": 402,
+    "circleInspect": true,
+    "circleReadinessScore": 100,
+    "mainnetPaidDrawTested": false
+  },
+  "publicRepositories": [
+    "https://github.com/d20dao/lottewy",
+    "https://github.com/d20dao/lottewy-x402"
+  ]
 }
