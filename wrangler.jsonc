@@ -41,7 +41,7 @@
         "MODE": "production",
         "JEV_MODE": "live",
         "JEV_MODEL": "jev-1.13.0",
-        "RPC_URL": "https://rpc.testnet.arc.io",
+        "RPC_URL": "https://rpc.drpc.testnet.arc.io",
         "ADMIN_ADDRESSES": "0x7ad78fc8097dfea5c12dbb503d6eb6e60f34b40b",
         "CONSUMER_ADDRESS": "0xc79366c5a906f8f644830747a6096e004c4d2297",
         "CONSUMER_CODE_HASH": "0xb84b25c6893351395167283fb37c2c7abbfed734a6e043967a6ae6d295373dc5"

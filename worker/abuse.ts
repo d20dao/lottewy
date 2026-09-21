@@ -23,18 +23,36 @@ export class AbuseError extends Error {
 
 export async function assertFunded(env: { RPC_URL: string }, address: Address) {
   let balance: bigint;
+  let stage = "configuration";
   try {
     if (!env.RPC_URL) throw new Error("Missing network configuration");
     const client = createPublicClient({
       chain: arc,
       transport: http(env.RPC_URL, { timeout: 8000, retryCount: 0 }),
     });
+    stage = "chain-id";
     if ((await client.getChainId()) !== CHAIN_ID)
       throw new Error("Incorrect network");
+    stage = "balance";
     balance = await client.getBalance({ address, blockTag: "latest" });
     if (typeof balance !== "bigint" || balance < 0n)
       throw new Error("Invalid balance");
-  } catch {
+  } catch (error) {
+    const failure = error as {
+      name?: string;
+      status?: number;
+      code?: number;
+      cause?: { name?: string; status?: number; code?: number };
+    };
+    console.warn("Funding RPC unavailable", {
+      stage,
+      name: failure.name,
+      status: failure.status,
+      code: failure.code,
+      causeName: failure.cause?.name,
+      causeStatus: failure.cause?.status,
+      causeCode: failure.cause?.code,
+    });
     throw new AbuseError(
       "FUNDING_CHECK_UNAVAILABLE",
       "The Arc Testnet balance check is unavailable. Your draft is preserved; please try again.",
