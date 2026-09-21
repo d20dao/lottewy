@@ -131,6 +131,52 @@ beforeEach(async () => {
   cookie = (await login()).cookie;
 });
 describe("signed Worker actions / real SQL atomicity", () => {
+  it("requires the admin signed action for fixed Discord command registration and journals retries", async () => {
+    const denied = await call(
+      "/actions",
+      await command("register-discord-commands", "discord_commands", 0, {
+        confirm: true,
+      }),
+    );
+    expect(denied.status).toBe(400);
+    env.ADMIN_ADDRESSES = account.address.toLowerCase();
+    env.DISCORD_APP_ID = "123456789012345678";
+    env.DISCORD_APP_PUBLIC_KEY = "11".repeat(32);
+    env.DISCORD_BOT_TOKEN = "test-bot-token";
+    let writes = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: any, init: any) => {
+        const path = new URL(String(url)).pathname;
+        if (path.endsWith("/oauth2/applications/@me"))
+          return Response.json({
+            id: env.DISCORD_APP_ID,
+            verify_key: env.DISCORD_APP_PUBLIC_KEY,
+          });
+        if (path.endsWith("/commands") && init.method === "POST") {
+          writes++;
+          return Response.json(JSON.parse(init.body));
+        }
+        if (path.endsWith("/commands"))
+          return Response.json([
+            { name: "verify", type: 1 },
+            { name: "giveaway", type: 1 },
+          ]);
+        throw new Error("Unexpected request");
+      }),
+    );
+    const signed = await command(
+      "register-discord-commands",
+      "discord_commands",
+      0,
+      { confirm: true },
+    );
+    const first = await call("/actions", signed);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ registered: ["giveaway", "verify"] });
+    expect((await call("/actions", signed)).status).toBe(200);
+    expect(writes).toBe(2);
+  });
   it("rejects signed edits to the frozen Discord roster before consuming review budget", async () => {
     const id = crypto.randomUUID();
     const created = await call(

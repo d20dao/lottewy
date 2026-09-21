@@ -40,6 +40,7 @@ import {
 } from "./discord-campaigns";
 import { normalizeDiscordCampaign } from "../shared/discord-campaign";
 import { expireDiscordRegistrations } from "./discord-retention";
+import { registerDiscordCommands } from "./discord-commands";
 import {
   AbuseError,
   assertFunded,
@@ -1015,6 +1016,16 @@ export default {
             ).bind(JSON.stringify(reserved), g.id),
           );
           result = reserved;
+        } else if (action.actionType === "register-discord-commands") {
+          assert(
+            admin &&
+              !user.suspended &&
+              action.giveawayId === "discord_commands" &&
+              action.expectedRevision === 0 &&
+              payload.confirm === true,
+            "Admin permission and explicit Discord registration confirmation are required",
+          );
+          result = await registerDiscordCommands(env);
         } else if (action.actionType === "set-jev") {
           assert(
             admin &&
